@@ -9,7 +9,13 @@ interface StockPileViewProps {
 }
 
 export function StockPileView({ pile, onDraw }: StockPileViewProps) {
-  const top = pile.top
+  const cards = pile.getCards()
+  const top = cards[cards.length - 1]
+  // A face-down peek of the next card down, kept mounted the same way as
+  // the waste/foundation piles do — mostly so the deck reads as an actual
+  // stack rather than a single flat card, and so it doesn't visually
+  // "empty out" a beat early right before the last card is drawn.
+  const under = cards[cards.length - 2]
 
   return (
     <PileSlot
@@ -25,6 +31,21 @@ export function StockPileView({ pile, onDraw }: StockPileViewProps) {
       }
       onClick={onDraw}
     >
+      {under && (
+        <div className="pointer-events-none">
+          <CardView
+            key={under.id}
+            card={under}
+            pileId={pile.id}
+            draggable={false}
+            selected={false}
+            style={{ top: 3, left: 2, zIndex: -1 }}
+            onDrop={() => false}
+            onSelect={() => {}}
+            onActivate={() => {}}
+          />
+        </div>
+      )}
       {top && (
         <CardView
           // Without this, React reuses the same component instance as

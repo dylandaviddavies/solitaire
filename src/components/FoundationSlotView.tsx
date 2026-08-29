@@ -15,13 +15,31 @@ interface FoundationSlotViewProps extends PileInteractionProps {
   pile: FoundationPile
 }
 
-export function FoundationSlotView({ pile, selected, onDrop, onSelect, onActivate }: FoundationSlotViewProps) {
-  const top = pile.top
+export function FoundationSlotView({
+  pile,
+  selected,
+  onDrop,
+  onSelect,
+  onActivate,
+  onDragStart,
+  onDragEnd,
+  isDropTarget,
+}: FoundationSlotViewProps) {
+  const cards = pile.getCards()
+  const top = cards[cards.length - 1]
+  // The card just underneath the top one, if any — kept mounted (same
+  // instance, since it's keyed by id) and peeking out slightly behind the
+  // top card. Without this, dragging the top card off a foundation (this
+  // game allows it) made the previous card underneath just pop into
+  // existence a moment later instead of having been quietly there all
+  // along.
+  const under = cards[cards.length - 2]
 
   return (
     <PileSlot
       pileId={pile.id}
       showPlaceholder={pile.isEmpty}
+      dropTarget={isDropTarget(pile.id)}
       placeholder={
         <div className="flex h-full w-full items-center justify-center text-3xl text-white/40">
           {SUIT_GLYPH[pile.suit]}
@@ -31,6 +49,21 @@ export function FoundationSlotView({ pile, selected, onDrop, onSelect, onActivat
         if (selected) onDrop(selected.card, pile.id)
       }}
     >
+      {under && (
+        <div className="pointer-events-none">
+          <CardView
+            key={under.id}
+            card={under}
+            pileId={pile.id}
+            draggable={false}
+            selected={false}
+            style={{ top: 3, left: 2, zIndex: -1 }}
+            onDrop={() => false}
+            onSelect={() => {}}
+            onActivate={() => {}}
+          />
+        </div>
+      )}
       {top && (
         <CardView
           // See StockPileView for why this key matters: without it React
@@ -46,6 +79,8 @@ export function FoundationSlotView({ pile, selected, onDrop, onSelect, onActivat
           onDrop={onDrop}
           onSelect={onSelect}
           onActivate={onActivate}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
         />
       )}
     </PileSlot>

@@ -22,6 +22,11 @@ interface CardViewProps {
   onDrop: (card: Card, destinationPileId: string) => boolean
   onSelect: (card: Card, pileId: string) => void
   onActivate: (card: Card) => void
+  /** Optional: omitted for cards that can never be dragged (e.g. the
+   * stock's face-down top, or a "peek" card rendered just to fill in the
+   * pile visually — see WastePileView/FoundationSlotView/StockPileView). */
+  onDragStart?: (card: Card, pileId: string) => void
+  onDragEnd?: () => void
 }
 
 const REST_SHADOW =
@@ -50,6 +55,8 @@ export function CardView({
   onDrop,
   onSelect,
   onActivate,
+  onDragStart,
+  onDragEnd,
 }: CardViewProps) {
   const registry = useDropRegistry()
   const cardBack = useCardBackPreference()
@@ -109,6 +116,7 @@ export function CardView({
       if (moved < DRAG_START_THRESHOLD_PX) return
       isDraggingRef.current = true
       wasDragged.current = true
+      onDragStart?.(card, pileId)
     }
 
     // Anchor the card's top-center to the pointer, wherever it was grabbed.
@@ -134,6 +142,7 @@ export function CardView({
     rawTilt.set(0)
 
     if (isDraggingRef.current) {
+      onDragEnd?.()
       const destinationId = registry.findPileAt(event.clientX, event.clientY)
       const moved = destinationId ? onDrop(card, destinationId) : false
       if (!moved) {

@@ -8,6 +8,10 @@ interface PileSlotProps {
   onClick?: () => void
   placeholder?: ReactNode
   showPlaceholder: boolean
+  /** True while a card is being dragged and this pile would currently
+   * accept it — draws a highlighted outline over the whole zone (cards
+   * and all), distinct from the dashed "empty pile" placeholder below. */
+  dropTarget?: boolean
   children: ReactNode
   className?: string
 }
@@ -23,6 +27,7 @@ export function PileSlot({
   onClick,
   placeholder,
   showPlaceholder,
+  dropTarget = false,
   children,
   className = '',
 }: PileSlotProps) {
@@ -50,6 +55,9 @@ export function PileSlot({
         </div>
       )}
       {children}
+      {dropTarget && (
+        <div className="pointer-events-none absolute inset-0 z-20 rounded-2xl border-[3px] border-emerald-400 bg-emerald-400/10 shadow-[0_0_0_4px_rgba(52,211,153,0.25),0_0_18px_rgba(52,211,153,0.55)]" />
+      )}
     </div>
   )
 }

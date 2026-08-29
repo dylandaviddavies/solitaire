@@ -8,7 +8,16 @@ interface TableauColumnViewProps extends PileInteractionProps {
   pile: TableauPile
 }
 
-export function TableauColumnView({ pile, selected, onDrop, onSelect, onActivate }: TableauColumnViewProps) {
+export function TableauColumnView({
+  pile,
+  selected,
+  onDrop,
+  onSelect,
+  onActivate,
+  onDragStart,
+  onDragEnd,
+  isDropTarget,
+}: TableauColumnViewProps) {
   const cards = pile.getCards()
 
   const offsets: number[] = []
@@ -24,6 +33,7 @@ export function TableauColumnView({ pile, selected, onDrop, onSelect, onActivate
       pileId={pile.id}
       minHeight={totalHeight}
       showPlaceholder={pile.isEmpty}
+      dropTarget={isDropTarget(pile.id)}
       onClick={() => {
         if (selected) onDrop(selected.card, pile.id)
       }}
@@ -39,6 +49,8 @@ export function TableauColumnView({ pile, selected, onDrop, onSelect, onActivate
           onDrop={onDrop}
           onSelect={onSelect}
           onActivate={onActivate}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
         />
       ))}
     </PileSlot>

@@ -17,11 +17,35 @@ export function WastePileView({
   onDrop,
   onSelect,
   onActivate,
+  onDragStart,
+  onDragEnd,
 }: WastePileViewProps) {
-  const top = pile.top
+  const cards = pile.getCards()
+  const top = cards[cards.length - 1]
+  // The card just underneath the top one, if any — kept mounted (it's
+  // keyed by id, so it's the very same instance that used to be the top
+  // card) and peeking out slightly behind it, so drawing or dragging the
+  // top card away reveals a card that was quietly there the whole time
+  // instead of the pile going instantly blank.
+  const under = cards[cards.length - 2]
 
   return (
     <PileSlot pileId={pile.id} showPlaceholder={pile.isEmpty}>
+      {under && (
+        <div className="pointer-events-none">
+          <CardView
+            key={under.id}
+            card={under}
+            pileId={pile.id}
+            draggable={false}
+            selected={false}
+            style={{ top: 3, left: 2, zIndex: -1 }}
+            onDrop={() => false}
+            onSelect={() => {}}
+            onActivate={() => {}}
+          />
+        </div>
+      )}
       {top && (
         <CardView
           // See StockPileView for why this key matters: without it React
@@ -38,6 +62,8 @@ export function WastePileView({
           onDrop={onDrop}
           onSelect={onSelect}
           onActivate={onActivate}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
         />
       )}
     </PileSlot>

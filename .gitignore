@@ -1,0 +1,22 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+dist-ssr
+dev-dist
+
+# Editor/OS
+.DS_Store
+*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Vite / TS build cache
+*.tsbuildinfo
+
+# Playwright / test artifacts used only while developing
+screenshot*.mjs
+test-*.mjs

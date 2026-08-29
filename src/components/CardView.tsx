@@ -11,6 +11,11 @@ interface CardViewProps {
   pileId: string
   draggable: boolean
   selected: boolean
+  /** True for the one card that just landed here face-up from a fresh
+   * mount (e.g. a stock draw) — it should visibly flip in rather than
+   * just appear, since normal same-pile re-renders already flip smoothly
+   * on their own. */
+  revealOnMount?: boolean
   style?: React.CSSProperties
   onDrop: (card: Card, destinationPileId: string) => boolean
   onSelect: (card: Card, pileId: string) => void
@@ -30,6 +35,7 @@ export function CardView({
   pileId,
   draggable,
   selected,
+  revealOnMount,
   style,
   onDrop,
   onSelect,
@@ -124,6 +130,7 @@ export function CardView({
     >
       <motion.div
         className="relative h-full w-full rounded-[16px] border-[3px] border-black/15"
+        initial={revealOnMount ? { rotateY: 180 } : false}
         animate={{
           rotateY: card.faceUp ? 0 : 180,
           y: selected || isPressed ? -14 : 0,

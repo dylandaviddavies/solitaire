@@ -33,8 +33,10 @@ export function Board() {
   const [selected, setSelected] = useState<SelectedCard | null>(null)
   const [dealGeneration, setDealGeneration] = useState(0)
   const [winInfo, setWinInfo] = useState<WinInfo | null>(null)
+  const [justDrawnId, setJustDrawnId] = useState<string | null>(null)
 
   useEffect(() => engine.on('won', (payload) => setWinInfo(payload)), [engine])
+  useEffect(() => engine.on('drawn', ({ cardId }) => setJustDrawnId(cardId)), [engine])
 
   // Drives the cascading deal-in animation: pop one card off the queue at
   // a time so each lands with its own spring via the card's layoutId.
@@ -120,6 +122,7 @@ export function Board() {
               <WastePileView
                 pile={engine.waste}
                 selected={selected}
+                justDrawnId={justDrawnId}
                 onDrop={handleDrop}
                 onSelect={handleSelect}
                 onActivate={handleActivate}

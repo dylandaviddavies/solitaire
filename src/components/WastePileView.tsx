@@ -5,9 +5,19 @@ import { PileSlot } from './PileSlot'
 
 interface WastePileViewProps extends PileInteractionProps {
   pile: WastePile
+  /** Id of the card most recently dealt onto the waste, if any — that
+   * specific card plays a face-down-to-face-up flip on mount. */
+  justDrawnId?: string | null
 }
 
-export function WastePileView({ pile, selected, onDrop, onSelect, onActivate }: WastePileViewProps) {
+export function WastePileView({
+  pile,
+  selected,
+  justDrawnId,
+  onDrop,
+  onSelect,
+  onActivate,
+}: WastePileViewProps) {
   const top = pile.top
 
   return (
@@ -18,6 +28,7 @@ export function WastePileView({ pile, selected, onDrop, onSelect, onActivate }: 
           pileId={pile.id}
           draggable={pile.canLift(top)}
           selected={selected?.card === top}
+          revealOnMount={top.id === justDrawnId}
           style={{ top: 0, left: 0, zIndex: 0 }}
           onDrop={onDrop}
           onSelect={onSelect}

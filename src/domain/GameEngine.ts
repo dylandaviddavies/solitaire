@@ -23,6 +23,9 @@ interface GameEvents {
   change: { movesMade: number }
   won: { movesMade: number; elapsedMs: number }
   invalidMove: { cardId: string }
+  /** A card was dealt face-up onto the waste pile — the UI uses this to
+   * play a flip animation for that specific card. */
+  drawn: { cardId: string }
   [key: string]: unknown
 }
 
@@ -157,10 +160,17 @@ export class GameEngine {
 
   /** Draws a card to the waste, or recycles the waste when the stock is empty. */
   draw(): void {
-    const move: Move = this.stock.isEmpty
-      ? new RecycleMove(this.stock, this.waste)
-      : new DrawMove(this.stock, this.waste)
-    this.run(move)
+    if (this.stock.isEmpty) {
+      this.run(new RecycleMove(this.stock, this.waste))
+      return
+    }
+    // Peeked before executing: DrawMove pops this exact card, so its id
+    // tells the UI which freshly-mounted waste card should play the flip.
+    const drawnCard = this.stock.top
+    this.run(new DrawMove(this.stock, this.waste))
+    if (drawnCard) {
+      this.events.emit('drawn', { cardId: drawnCard.id })
+    }
   }
 
   /**

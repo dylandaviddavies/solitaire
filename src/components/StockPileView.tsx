@@ -27,6 +27,14 @@ export function StockPileView({ pile, onDraw }: StockPileViewProps) {
     >
       {top && (
         <CardView
+          // Without this, React reuses the same component instance as
+          // the stock's top card changes underneath it (it changes 28
+          // times during the initial deal alone), which hands Motion's
+          // layoutId a changing value on an already-mounted instance
+          // instead of a clean mount/unmount pair — that can leave the
+          // card's opacity stuck mid-transition. Keying by id forces a
+          // fresh instance per card.
+          key={top.id}
           card={top}
           pileId={pile.id}
           draggable={false}

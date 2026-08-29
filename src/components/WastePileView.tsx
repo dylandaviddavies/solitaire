@@ -24,6 +24,11 @@ export function WastePileView({
     <PileSlot pileId={pile.id} showPlaceholder={pile.isEmpty}>
       {top && (
         <CardView
+          // See StockPileView for why this key matters: without it React
+          // reuses one component instance as the visible top card changes
+          // underneath it, which conflicts with Motion's layoutId-based
+          // transitions.
+          key={top.id}
           card={top}
           pileId={pile.id}
           draggable={pile.canLift(top)}

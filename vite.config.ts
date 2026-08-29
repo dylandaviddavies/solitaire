@@ -50,6 +50,25 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
+        // The Google Fonts CSS/files are cross-origin, so globPatterns
+        // above won't pick them up — cache them at runtime instead, so
+        // the custom font also survives once you've loaded the app once.
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: { cacheName: 'google-fonts-stylesheets' },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-webfonts',
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: { maxAgeSeconds: 60 * 60 * 24 * 365, maxEntries: 20 },
+            },
+          },
+        ],
       },
       devOptions: {
         // Lets `npm run dev` register a real service worker too, so

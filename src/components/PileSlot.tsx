@@ -36,6 +36,7 @@ export function PileSlot({
   return (
     <div
       ref={ref}
+      data-pile-id={pileId}
       onClick={onClick}
       className={`relative rounded-2xl ${className}`}
       style={{ width: CARD_WIDTH, minHeight: minHeight ?? CARD_HEIGHT }}

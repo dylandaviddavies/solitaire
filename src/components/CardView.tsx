@@ -1,8 +1,10 @@
-import { motion, useMotionValue, useSpring, type PanInfo } from 'motion/react'
+import { motion, useMotionValue, useSpring } from 'motion/react'
 import { useRef, useState } from 'react'
 import type { Card } from '../domain/Card'
+import { useCardBackPreference } from '../hooks/useCardBackPreference'
 import { useDropRegistry } from '../lib/DropRegistryContext'
 import { CARD_HEIGHT, CARD_WIDTH } from '../lib/layout'
+import { useStageScale } from '../lib/StageScaleContext'
 import { CardBack } from './CardBack'
 import { CardFace } from './CardFace'
 
@@ -28,7 +30,15 @@ const LIFT_SHADOW =
   '0 10px 0 rgba(15,15,20,0.3), 0 22px 30px rgba(15,15,20,0.38)'
 
 const SWAY_MAX_DEG = 16
+const DRAG_START_THRESHOLD_PX = 4
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+
+// The card is always "held" by its top-center, like pinching the top edge
+// between two fingers — not by whichever pixel you happened to click.
+// Wherever the pointer goes, that exact point follows it, and the sway
+// pivots from the same spot, so every drag behaves identically (Balatro-
+// style) instead of varying with where on the card you grabbed it.
+const ANCHOR = { x: 0.5, y: 0 }
 
 export function CardView({
   card,
@@ -42,15 +52,37 @@ export function CardView({
   onActivate,
 }: CardViewProps) {
   const registry = useDropRegistry()
+  const cardBack = useCardBackPreference()
+  // The board is uniformly scaled down to fit narrow/mobile viewports
+  // (see ResponsiveStage) — a translate value set inside that scaled
+  // subtree gets multiplied by this same factor on screen, so real
+  // screen-pixel pointer deltas must be divided by it before being fed
+  // back in as x/y, or the card only travels `stageScale` of the
+  // intended distance.
+  const stageScale = useStageScale()
   const wasDragged = useRef(false)
-  const cardRef = useRef<HTMLDivElement>(null)
+  const isDraggingRef = useRef(false)
+  // The card's on-screen rest position (and actual rendered width — the
+  // board can be scaled down to fit narrow/mobile viewports, so this must
+  // be measured rather than assumed from the logical CARD_WIDTH constant)
+  // at the moment it was grabbed, so every subsequent pointer position can
+  // be converted into a translate offset from that rest position.
+  const restRect = useRef<{ left: number; top: number; width: number } | null>(null)
+  const startPoint = useRef({ x: 0, y: 0 })
+  const lastClientX = useRef(0)
   // Lifts the instant the card is grabbed (pointer down), not just once an
   // actual drag is recognized — a real card lifts as soon as you pinch it.
   const [isPressed, setIsPressed] = useState(false)
-  // Where on the card it was grabbed, as a 0..1 fraction of its box. Used
-  // as the rotation pivot so the card sways around your grip rather than
-  // its own center, like a real card held between two fingers.
-  const [origin, setOrigin] = useState({ x: 0.5, y: 0.5 })
+
+  // The raw target position jumps straight to the pointer on every move;
+  // springing it into `x`/`y` makes the card glide toward the cursor
+  // instead of teleporting there, while still feeling responsive enough
+  // to track a drag.
+  const rawX = useMotionValue(0)
+  const rawY = useMotionValue(0)
+  const dragSpring = { stiffness: 480, damping: 34, mass: 0.6 }
+  const x = useSpring(rawX, dragSpring)
+  const y = useSpring(rawY, dragSpring)
 
   // Raw tilt target jumps around with every pointer-move delta; springing
   // it — slowly — produces the organic, laggy "swaying" of a card being
@@ -58,63 +90,105 @@ export function CardView({
   const rawTilt = useMotionValue(0)
   const swayRotate = useSpring(rawTilt, { stiffness: 90, damping: 14, mass: 1.1 })
 
-  const handlePointerDown = (event: React.PointerEvent) => {
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     setIsPressed(true)
-    const rect = cardRef.current?.getBoundingClientRect()
-    if (rect && rect.width > 0 && rect.height > 0) {
-      setOrigin({
-        x: clamp((event.clientX - rect.left) / rect.width, 0, 1),
-        y: clamp((event.clientY - rect.top) / rect.height, 0, 1),
-      })
+    if (!draggable) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    restRect.current = { left: rect.left, top: rect.top, width: rect.width }
+    startPoint.current = { x: event.clientX, y: event.clientY }
+    lastClientX.current = event.clientX
+    isDraggingRef.current = false
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!restRect.current) return
+
+    if (!isDraggingRef.current) {
+      const moved = Math.hypot(event.clientX - startPoint.current.x, event.clientY - startPoint.current.y)
+      if (moved < DRAG_START_THRESHOLD_PX) return
+      isDraggingRef.current = true
+      wasDragged.current = true
     }
+
+    // Anchor the card's top-center to the pointer, wherever it was grabbed.
+    // Setting the raw target (rather than x/y directly) lets the spring
+    // above ease the card toward it instead of snapping instantly. Uses
+    // the card's actual measured width (not the logical CARD_WIDTH
+    // constant) so the anchor stays exact even when the board is scaled
+    // down to fit a narrow/mobile viewport. The resulting screen-pixel
+    // delta is then divided by the stage scale, since a translate applied
+    // inside the scaled board gets multiplied by that same factor once
+    // rendered.
+    const targetLeft = event.clientX - restRect.current.width / 2
+    const targetTop = event.clientY
+    rawX.set((targetLeft - restRect.current.left) / stageScale)
+    rawY.set((targetTop - restRect.current.top) / stageScale)
+
+    rawTilt.set(clamp((event.clientX - lastClientX.current) * 2.2, -SWAY_MAX_DEG, SWAY_MAX_DEG))
+    lastClientX.current = event.clientX
   }
 
-  const handlePointerEnd = () => setIsPressed(false)
-
-  const handleDragStart = () => {
-    wasDragged.current = true
-  }
-
-  const handleDrag = (_event: PointerEvent | MouseEvent | TouchEvent, info: PanInfo) => {
-    rawTilt.set(clamp(info.delta.x * 2.2, -SWAY_MAX_DEG, SWAY_MAX_DEG))
-  }
-
-  const handleDragEnd = (_event: PointerEvent | MouseEvent | TouchEvent, info: PanInfo) => {
+  const handlePointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
     setIsPressed(false)
     rawTilt.set(0)
-    const destinationId = registry.findPileAt(info.point.x, info.point.y)
-    if (destinationId && destinationId !== pileId) {
-      onDrop(card, destinationId)
+
+    if (isDraggingRef.current) {
+      const destinationId = registry.findPileAt(event.clientX, event.clientY)
+      const moved = destinationId ? onDrop(card, destinationId) : false
+      if (!moved) {
+        // Snap back to the rest position — the pile it came from hasn't
+        // changed, so there's nowhere else for it to go. Retargeting the
+        // raw values lets the same following-spring ease it back smoothly.
+        rawX.set(0)
+        rawY.set(0)
+      }
     }
+
+    isDraggingRef.current = false
+    restRect.current = null
   }
 
   return (
     <motion.div
-      ref={cardRef}
-      layout
+      // Layout projection (for the cross-pile FLIP animation when a card
+      // moves to a different parent) fights with our manual pointer-driven
+      // x/y while a card is actively held — Motion tries to compensate for
+      // the "unexpected" position/size change with its own corrective
+      // transform, which visibly distorts the card's scale mid-drag. Only
+      // enabling it when the card isn't currently pressed keeps the FLIP
+      // animation for ordinary moves while leaving drags entirely to our
+      // own math.
+      layout={!isPressed}
+      // Scopes that layout animation to "this card actually changed
+      // pile" rather than "something, somewhere in the shared layoutId
+      // group, re-rendered". Without this, dropping the top card of a
+      // pile can make the card left behind underneath it — whose own
+      // position never changed — visibly animate anyway, since Motion
+      // otherwise re-measures every layout-enabled sibling on every
+      // render and treats any of them as needing a corrective transition.
+      layoutDependency={pileId}
       layoutId={card.id}
-      className="absolute left-0 top-0 cursor-pointer touch-none"
+      className="absolute left-0 top-0 touch-none"
       style={{
         width: CARD_WIDTH,
         height: CARD_HEIGHT,
-        rotate: swayRotate,
-        originX: origin.x,
-        originY: origin.y,
         ...style,
+        x,
+        y,
+        rotate: swayRotate,
+        originX: ANCHOR.x,
+        originY: ANCHOR.y,
+        zIndex: isPressed ? 200 : style?.zIndex,
+        cursor: draggable ? (isPressed ? 'grabbing' : 'grab') : 'pointer',
       }}
       initial={false}
+      animate={{ scale: isPressed ? 1.07 : 1 }}
       transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.9 }}
-      drag={draggable}
-      dragSnapToOrigin
-      dragElastic={0.35}
-      dragTransition={{ bounceStiffness: 500, bounceDamping: 28 }}
-      whileDrag={{ scale: 1.07, zIndex: 200, cursor: 'grabbing' }}
       onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
-      onDragStart={handleDragStart}
-      onDrag={handleDrag}
-      onDragEnd={handleDragEnd}
       onClick={(event: React.MouseEvent) => {
         event.stopPropagation()
         if (wasDragged.current) {
@@ -149,7 +223,7 @@ export function CardView({
           className="absolute inset-0 [backface-visibility:hidden]"
           style={{ transform: 'rotateY(180deg)' }}
         >
-          <CardBack />
+          <CardBack variant={cardBack} />
         </div>
       </motion.div>
     </motion.div>

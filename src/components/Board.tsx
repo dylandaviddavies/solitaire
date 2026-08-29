@@ -103,7 +103,7 @@ export function Board() {
 
   return (
     <DropRegistryProvider>
-      <div className="flex min-h-screen w-full flex-col items-center bg-gradient-to-b from-slate-950 via-[#0b1224] to-[#111c3a]">
+      <div className="flex h-dvh w-full flex-col items-center overflow-hidden bg-gradient-to-b from-slate-950 via-[#0b1224] to-[#111c3a]">
         <Toolbar
           movesCount={engine.movesCount}
           startedAtMs={engine.startedAtMs}
@@ -115,50 +115,52 @@ export function Board() {
           onAutoComplete={handleAutoComplete}
         />
 
-        <ResponsiveStage baseWidth={STAGE_WIDTH} baseHeight={STAGE_HEIGHT}>
-          <div className="relative" style={{ width: STAGE_WIDTH, height: STAGE_HEIGHT }}>
-            <div className="absolute left-0 top-0 flex" style={{ gap: COLUMN_GAP }}>
-              <StockPileView pile={engine.stock} onDraw={() => engine.draw()} />
-              <WastePileView
-                pile={engine.waste}
-                selected={selected}
-                justDrawnId={justDrawnId}
-                onDrop={handleDrop}
-                onSelect={handleSelect}
-                onActivate={handleActivate}
-              />
-            </div>
-
-            <div className="absolute right-0 top-0 flex" style={{ gap: COLUMN_GAP }}>
-              {engine.foundations.map((foundation) => (
-                <FoundationSlotView
-                  key={foundation.id}
-                  pile={foundation}
+        <div className="flex min-h-0 w-full flex-1">
+          <ResponsiveStage baseWidth={STAGE_WIDTH} baseHeight={STAGE_HEIGHT}>
+            <div className="relative" style={{ width: STAGE_WIDTH, height: STAGE_HEIGHT }}>
+              <div className="absolute left-0 top-0 flex" style={{ gap: COLUMN_GAP }}>
+                <StockPileView pile={engine.stock} onDraw={() => engine.draw()} />
+                <WastePileView
+                  pile={engine.waste}
                   selected={selected}
+                  justDrawnId={justDrawnId}
                   onDrop={handleDrop}
                   onSelect={handleSelect}
                   onActivate={handleActivate}
                 />
-              ))}
-            </div>
+              </div>
 
-            <div className="absolute left-0 flex" style={{ top: TABLEAU_TOP, gap: COLUMN_GAP }}>
-              {engine.tableau.map((column) => (
-                <TableauColumnView
-                  key={column.id}
-                  pile={column}
-                  selected={selected}
-                  onDrop={handleDrop}
-                  onSelect={handleSelect}
-                  onActivate={handleActivate}
-                />
-              ))}
-            </div>
-          </div>
-        </ResponsiveStage>
+              <div className="absolute right-0 top-0 flex" style={{ gap: COLUMN_GAP }}>
+                {engine.foundations.map((foundation) => (
+                  <FoundationSlotView
+                    key={foundation.id}
+                    pile={foundation}
+                    selected={selected}
+                    onDrop={handleDrop}
+                    onSelect={handleSelect}
+                    onActivate={handleActivate}
+                  />
+                ))}
+              </div>
 
-        <p className="pb-6 text-center text-xs text-white/70">
-          Drag a card, or click it then click where it should go. Double-click sends it home to a foundation.
+              <div className="absolute left-0 flex" style={{ top: TABLEAU_TOP, gap: COLUMN_GAP }}>
+                {engine.tableau.map((column) => (
+                  <TableauColumnView
+                    key={column.id}
+                    pile={column}
+                    selected={selected}
+                    onDrop={handleDrop}
+                    onSelect={handleSelect}
+                    onActivate={handleActivate}
+                  />
+                ))}
+              </div>
+            </div>
+          </ResponsiveStage>
+        </div>
+
+        <p className="px-4 pb-2 text-center text-[11px] text-white/70 sm:pb-6 sm:text-xs">
+          Drag a card, or tap it then tap where it should go. Double-tap sends it home to a foundation.
         </p>
       </div>
 

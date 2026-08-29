@@ -51,7 +51,7 @@ export function WinOverlay({ visible, movesCount, elapsedMs, onNewGame }: WinOve
             >
               🏆
             </motion.span>
-            <h2 className="text-3xl font-black text-slate-800">You Win!</h2>
+            <h2 className="text-3xl font-bold uppercase tracking-wide text-slate-800">You Win!</h2>
             <p className="text-slate-500">
               Solved in <span className="font-bold text-slate-700">{movesCount}</span> moves and{' '}
               <span className="font-bold text-slate-700">{formatClock(Math.floor(elapsedMs / 1000))}</span>
@@ -59,7 +59,7 @@ export function WinOverlay({ visible, movesCount, elapsedMs, onNewGame }: WinOve
             <button
               type="button"
               onClick={onNewGame}
-              className="rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 px-6 py-2.5 font-bold text-white shadow-[0_4px_0_rgba(0,0,0,0.25)] active:translate-y-[2px] active:shadow-none"
+              className="rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 px-6 py-2.5 text-sm font-semibold uppercase tracking-wide text-white shadow-[0_4px_14px_rgba(0,0,0,0.28)] transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_6px_18px_rgba(0,0,0,0.32)] active:translate-y-0 active:scale-95 active:shadow-[0_2px_8px_rgba(0,0,0,0.25)]"
             >
               Play Again
             </button>

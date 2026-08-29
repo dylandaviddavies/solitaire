@@ -10,17 +10,30 @@ body,
   height: 100%;
 }
 
+html {
+  /* Locks the page like an app shell — no rubber-banding, no pinch-zoom,
+   * no pull-to-refresh — so dragging cards near the screen edges on a
+   * phone feels like a game, not a webpage. */
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
 body {
   margin: 0;
   font-family:
+    'Fredoka',
     ui-rounded,
-    'Nunito',
     system-ui,
     -apple-system,
     'Segoe UI',
     Roboto,
     sans-serif;
-  overflow-x: hidden;
+  overflow: hidden;
+  overscroll-behavior: none;
+  /* Safe-area padding for notches/home indicators when installed as a
+   * standalone PWA. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
 }
 
 * {

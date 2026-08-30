@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Card } from '../domain/Card'
 import { TABLEAU_COLUMNS } from '../domain/GameEngine'
+import { useBackgroundPreference } from '../hooks/useBackgroundPreference'
 import { useGameEngine } from '../hooks/useGameEngine'
 import { useIsMobileLayout } from '../hooks/useIsMobileLayout'
+import { BACKGROUND_GRADIENTS } from '../lib/backgrounds'
 import { DropRegistryProvider } from '../lib/DropRegistryContext'
 import { CARD_HEIGHT, CARD_WIDTH, COLUMN_GAP } from '../lib/layout'
 import type { SelectedCard } from '../lib/types'
@@ -65,6 +67,7 @@ export function Board() {
   // separate from `selected` (tap-to-move), which has its own lifecycle.
   const [isDragging, setIsDragging] = useState(false)
   const isMobileLayout = useIsMobileLayout()
+  const background = useBackgroundPreference()
 
   // These depend on `isMobileLayout`, so they're computed per render
   // rather than hoisted to module scope like the pure geometry constants
@@ -154,7 +157,9 @@ export function Board() {
 
   return (
     <DropRegistryProvider>
-      <div className="flex h-dvh w-full flex-col items-center overflow-hidden bg-gradient-to-b from-slate-950 via-[#0b1224] to-[#111c3a]">
+      <div
+        className={`flex h-dvh w-full flex-col items-center overflow-hidden bg-gradient-to-b ${BACKGROUND_GRADIENTS[background]}`}
+      >
         <Toolbar
           movesCount={engine.movesCount}
           startedAtMs={engine.startedAtMs}

@@ -1,8 +1,9 @@
 import { motion } from 'motion/react'
 import { useState } from 'react'
+import { useBackgroundPreference } from '../hooks/useBackgroundPreference'
 import { useCardBackPreference } from '../hooks/useCardBackPreference'
 import { formatClock, useElapsedSeconds } from '../hooks/useElapsedSeconds'
-import { setCardBack } from '../lib/preferences'
+import { backgroundPreference, cardBackPreference } from '../lib/preferences'
 import { SettingsPanel } from './SettingsPanel'
 
 interface ToolbarProps {
@@ -31,6 +32,7 @@ export function Toolbar({
 }: ToolbarProps) {
   const elapsed = useElapsedSeconds(startedAtMs, !won)
   const cardBack = useCardBackPreference()
+  const background = useBackgroundPreference()
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   return (
@@ -86,8 +88,10 @@ export function Toolbar({
 
       <SettingsPanel
         open={settingsOpen}
-        current={cardBack}
-        onSelect={setCardBack}
+        cardBack={cardBack}
+        onSelectCardBack={cardBackPreference.set}
+        background={background}
+        onSelectBackground={backgroundPreference.set}
         onClose={() => setSettingsOpen(false)}
       />
     </>

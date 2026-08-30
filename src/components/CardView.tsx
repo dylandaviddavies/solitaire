@@ -8,6 +8,19 @@ import { useStageScale } from '../lib/StageScaleContext'
 import { CardBack } from './CardBack'
 import { CardFace } from './CardFace'
 
+/** A motion value driving a single number — named via the hook's own
+ * return type rather than importing framer-motion's internal `MotionValue`
+ * class (which `motion/react` doesn't re-export by that name). */
+type NumberMotionValue = ReturnType<typeof useMotionValue<number>>
+
+/** The live position/rotation of a card actively being dragged, shared
+ * with the other cards in its run so they can visually follow along. */
+export interface DragTransform {
+  x: NumberMotionValue
+  y: NumberMotionValue
+  rotate: NumberMotionValue
+}
+
 interface CardViewProps {
   card: Card
   pileId: string
@@ -27,6 +40,16 @@ interface CardViewProps {
    * pile visually — see WastePileView/FoundationSlotView/StockPileView). */
   onDragStart?: (card: Card, pileId: string) => void
   onDragEnd?: () => void
+  /** Fires once, right as a real drag begins, handing up this card's own
+   * live position/rotation motion values so a parent (e.g.
+   * TableauColumnView) can pass them to the other cards in the same run
+   * as `followTransform`, making the whole run drag together instead of
+   * just the one card that was grabbed. */
+  onDragTransform?: (transform: DragTransform) => void
+  /** When set, this card is part of a run whose base is being dragged
+   * elsewhere: it mirrors that card's position/rotation exactly instead
+   * of driving its own, and skips its own layout/press styling. */
+  followTransform?: DragTransform
 }
 
 const REST_SHADOW =
@@ -57,6 +80,8 @@ export function CardView({
   onActivate,
   onDragStart,
   onDragEnd,
+  onDragTransform,
+  followTransform,
 }: CardViewProps) {
   const registry = useDropRegistry()
   const cardBack = useCardBackPreference()
@@ -124,13 +149,20 @@ export function CardView({
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     setIsPressed(true)
+    // Capture the pointer unconditionally, even for a non-draggable card
+    // (e.g. the stock, which is clickable but never dragged). Without
+    // this, the slightest pointer drift during a tap can carry the
+    // pointerup event onto a different element — one that never calls
+    // this card's handlePointerEnd — leaving isPressed stuck true and the
+    // card visually lifted forever. Capturing guarantees every subsequent
+    // pointer event (move/up/cancel) still reaches this element.
+    event.currentTarget.setPointerCapture(event.pointerId)
     if (!draggable) return
     const rect = event.currentTarget.getBoundingClientRect()
     restRect.current = { left: rect.left, top: rect.top, width: rect.width }
     startPoint.current = { x: event.clientX, y: event.clientY }
     lastClientX.current = event.clientX
     isDraggingRef.current = false
-    event.currentTarget.setPointerCapture(event.pointerId)
   }
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -144,6 +176,11 @@ export function CardView({
       wasDragged.current = true
       justStarted = true
       onDragStart?.(card, pileId)
+      // Hand up this card's own live motion values so a parent (e.g.
+      // TableauColumnView) can pass them along to the other cards in the
+      // same run as `followTransform`, making the whole run drag as one
+      // unit instead of just the card that was actually grabbed.
+      onDragTransform?.({ x, y, rotate: swayRotate })
     }
 
     // Anchor the card's top-center to the pointer, wherever it was grabbed.
@@ -205,7 +242,7 @@ export function CardView({
       // enabling it when the card isn't currently pressed keeps the FLIP
       // animation for ordinary moves while leaving drags entirely to our
       // own math.
-      layout={!isPressed}
+      layout={!isPressed && !followTransform}
       // Scopes that layout animation to "this card actually changed
       // pile" rather than "something, somewhere in the shared layoutId
       // group, re-rendered". Without this, dropping the top card of a
@@ -220,16 +257,16 @@ export function CardView({
         width: CARD_WIDTH,
         height: CARD_HEIGHT,
         ...style,
-        x,
-        y,
-        rotate: swayRotate,
+        x: followTransform?.x ?? x,
+        y: followTransform?.y ?? y,
+        rotate: followTransform?.rotate ?? swayRotate,
         originX: ANCHOR.x,
         originY: ANCHOR.y,
-        zIndex: isPressed ? 200 : style?.zIndex,
+        zIndex: isPressed || followTransform ? 200 : style?.zIndex,
         cursor: draggable ? (isPressed ? 'grabbing' : 'grab') : 'pointer',
       }}
       initial={false}
-      animate={{ scale: isPressed ? 1.07 : 1 }}
+      animate={{ scale: isPressed || followTransform ? 1.07 : 1 }}
       transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.9 }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}

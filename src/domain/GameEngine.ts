@@ -19,6 +19,35 @@ interface DealStep {
   faceUp: boolean
 }
 
+/** A card stripped down to only what's needed to recreate it — no `id`
+ * (ids are a fresh-per-session counter, meaningless across a reload) and
+ * no behaviour. */
+export interface SerializedCard {
+  suit: Suit
+  rank: Card['rank']
+  faceUp: boolean
+}
+
+/** Everything needed to resume a game exactly where the player left off:
+ * every pile's contents (bottom to top), the still-to-be-dealt queue (in
+ * case a save lands mid deal-in animation), and the running move
+ * count/start time so the toolbar's counters stay correct. Undo history is
+ * deliberately not included — resuming with a clean slate for "undo" is a
+ * reasonable trade for not having to serialize the move-command stack.
+ * This type (and `snapshot`/`restore` below) is the engine's only
+ * awareness of persistence; it has no idea *where* a snapshot is stored —
+ * see `lib/gameStorage.ts` for the localStorage adapter. */
+export interface GameSnapshot {
+  version: 1
+  stock: SerializedCard[]
+  waste: SerializedCard[]
+  foundations: SerializedCard[][]
+  tableau: SerializedCard[][]
+  dealQueue: DealStep[]
+  movesMade: number
+  startedAt: number
+}
+
 interface GameEvents {
   change: { movesMade: number }
   won: { movesMade: number; elapsedMs: number }
@@ -238,6 +267,62 @@ export class GameEngine {
 
   get canUndo(): boolean {
     return this.history.length > 0
+  }
+
+  // ---------------------------------------------------------------------
+  // Persistence
+  // ---------------------------------------------------------------------
+
+  /** Captures every pile and the deal-in progress as plain data, suitable
+   * for JSON-serializing (see `lib/gameStorage.ts`). */
+  snapshot(): GameSnapshot {
+    const serialize = (cards: readonly Card[]): SerializedCard[] =>
+      cards.map((card) => ({ suit: card.suit, rank: card.rank, faceUp: card.faceUp }))
+    return {
+      version: 1,
+      stock: serialize(this.stock.getCards()),
+      waste: serialize(this.waste.getCards()),
+      foundations: this.foundations.map((f) => serialize(f.getCards())),
+      tableau: this.tableau.map((t) => serialize(t.getCards())),
+      dealQueue: this.dealQueue.map((step) => ({ ...step })),
+      movesMade: this.movesMade,
+      startedAt: this.startedAt,
+    }
+  }
+
+  /**
+   * Replaces the current board with a previously-captured one — used to
+   * resume a game after a page refresh. Refuses (leaving the engine's own
+   * freshly-dealt game untouched) unless the snapshot accounts for exactly
+   * the 52 distinct cards a real deck has, so a corrupted or hand-edited
+   * save can never leave the board in a broken state.
+   */
+  restore(snapshot: GameSnapshot): boolean {
+    const allSerialized = [
+      ...snapshot.stock,
+      ...snapshot.waste,
+      ...snapshot.foundations.flat(),
+      ...snapshot.tableau.flat(),
+    ]
+    if (allSerialized.length !== 52) return false
+    const distinct = new Set(allSerialized.map((c) => `${c.rank}-${c.suit}`))
+    if (distinct.size !== 52) return false
+
+    const makeCard = (sc: SerializedCard) => new Card(sc.suit, sc.rank, sc.faceUp)
+    this.stock.reset(snapshot.stock.map(makeCard))
+    this.waste.reset(snapshot.waste.map(makeCard))
+    this.foundations.forEach((foundation, i) => foundation.reset((snapshot.foundations[i] ?? []).map(makeCard)))
+    this.tableau.forEach((column, i) => column.reset((snapshot.tableau[i] ?? []).map(makeCard)))
+
+    this.dealQueue = snapshot.dealQueue.map((step) => ({ ...step }))
+    this.history = []
+    this.movesMade = snapshot.movesMade
+    this.startedAt = snapshot.startedAt
+    // Set directly rather than letting emitChange() discover it, so a
+    // restored already-won game doesn't re-fire the 'won' celebration.
+    this.wonEmitted = this.isWon()
+    this.emitChange()
+    return true
   }
 
   // ---------------------------------------------------------------------

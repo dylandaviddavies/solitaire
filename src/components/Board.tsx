@@ -223,9 +223,7 @@ export function Board() {
           </ResponsiveStage>
         </div>
 
-        <p className="px-4 pb-2 text-center text-[11px] text-white/70 sm:pb-6 sm:text-xs">
-          Drag a card, or tap it then tap where it should go. Double-tap sends it home to a foundation.
-        </p>
+        <div className="pb-2 sm:pb-6" />
       </div>
 
       <WinOverlay

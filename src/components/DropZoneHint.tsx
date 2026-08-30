@@ -2,11 +2,14 @@ import { motion } from 'motion/react'
 import { DROP_ZONE_HINT_INSET } from '../lib/layout'
 import { DASHED_PILE_OUTLINE } from './pileStyles'
 
-// Motion for the hint fading + settling in when a drag begins, rather
-// than popping in hard. Tuned to be quick enough not to lag the drag.
-const ENTER_FROM = { opacity: 0, scale: 0.94 }
-const ENTER_TO = { opacity: 1, scale: 1 }
+// Fades + scales in when a drag begins and back out when it ends, rather
+// than popping. The exit is a touch slower and eases in, so the outlines
+// linger for a beat as the card settles. Requires an <AnimatePresence>
+// wrapper (see PileSlot) for the exit to run.
+const HIDDEN = { opacity: 0, scale: 0.94 }
+const VISIBLE = { opacity: 1, scale: 1 }
 const ENTER_TRANSITION = { duration: 0.16, ease: 'easeOut' } as const
+const EXIT_TRANSITION = { duration: 0.22, ease: 'easeIn' } as const
 
 /**
  * Neutral dashed outline drawn over any pile that could ever be a drop
@@ -20,8 +23,9 @@ export function DropZoneHint() {
     <motion.div
       className={`pointer-events-none absolute z-20 border-slate-300/70 ${DASHED_PILE_OUTLINE}`}
       style={{ inset: -DROP_ZONE_HINT_INSET }}
-      initial={ENTER_FROM}
-      animate={ENTER_TO}
+      initial={HIDDEN}
+      animate={VISIBLE}
+      exit={{ ...HIDDEN, transition: EXIT_TRANSITION }}
       transition={ENTER_TRANSITION}
     />
   )

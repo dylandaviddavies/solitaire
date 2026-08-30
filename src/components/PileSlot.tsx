@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
+import { AnimatePresence } from 'motion/react'
 import { useDropRegistry } from '../lib/DropRegistryContext'
 import { CARD_HEIGHT, CARD_WIDTH } from '../lib/layout'
 import { DropZoneHint } from './DropZoneHint'
@@ -60,7 +61,7 @@ export function PileSlot({
         </div>
       )}
       {children}
-      {dropTarget && <DropZoneHint />}
+      <AnimatePresence>{dropTarget && <DropZoneHint />}</AnimatePresence>
     </div>
   )
 }

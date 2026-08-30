@@ -5,7 +5,7 @@ import { useCardBackPreference } from '../hooks/useCardBackPreference'
 import { useWiggle } from '../hooks/useWiggle'
 import { useDropRegistry } from '../lib/DropRegistryContext'
 import { CARD_HEIGHT, CARD_WIDTH } from '../lib/layout'
-import { useRecentlyMoved } from '../lib/RecentMovesContext'
+import { useMovedRunPosition } from '../lib/RecentMovesContext'
 import { useStageScale } from '../lib/StageScaleContext'
 import { CardBack } from './CardBack'
 import { CardFace } from './CardFace'
@@ -53,7 +53,15 @@ interface CardViewProps {
    * elsewhere: it mirrors that card's position/rotation exactly instead
    * of driving its own, and skips its own layout/press styling. */
   followTransform?: DragTransform
+  /** Set by a parent to wiggle this card as part of a run whose head was
+   * tapped. `nonce` changes on every tap (so a repeat tap replays it);
+   * `order` is the card's place in the run, for the cascade delay. */
+  groupWiggle?: { nonce: number; order: number }
 }
+
+// Seconds of delay added per card down a run, so a group wiggle ripples
+// through the fan instead of every card shaking in lockstep.
+const WIGGLE_STAGGER_S = 0.05
 
 const REST_SHADOW =
   '0 3px 0 rgba(15,15,20,0.35), 0 8px 14px rgba(15,15,20,0.28)'
@@ -95,6 +103,7 @@ export function CardView({
   onDragEnd,
   onDragTransform,
   followTransform,
+  groupWiggle,
 }: CardViewProps) {
   const registry = useDropRegistry()
   const cardBack = useCardBackPreference()
@@ -167,19 +176,30 @@ export function CardView({
   // uses.
   const { angle: wiggleAngle, play: playWiggle } = useWiggle()
 
-  // A card that just landed here from a move gets a one-shot wiggle +
-  // sparkle as it mounts into its new pile. `recentlyMoved` is true for
-  // exactly that first render; the ref stops a later state change from
-  // replaying it on the same instance.
-  const recentlyMoved = useRecentlyMoved(card.id)
+  // A card that just landed here from a move gets a one-shot wiggle as it
+  // mounts into its new pile — every card of a moved run, cascading by
+  // `runPosition` (its index in the run, or -1 if it wasn't part of one).
+  // Only the run's head also sparkles, so a long run doesn't set off a
+  // wall of them. The ref stops a later state change from replaying it on
+  // the same instance.
+  const runPosition = useMovedRunPosition(card.id)
   const landedPlayed = useRef(false)
   const [sparkling, setSparkling] = useState(false)
   useEffect(() => {
-    if (!recentlyMoved || landedPlayed.current) return
+    if (runPosition < 0 || landedPlayed.current) return
     landedPlayed.current = true
-    playWiggle()
-    setSparkling(true)
-  }, [recentlyMoved, playWiggle])
+    playWiggle(runPosition * WIGGLE_STAGGER_S)
+    if (runPosition === 0) setSparkling(true)
+  }, [runPosition, playWiggle])
+
+  // Wiggle triggered by a parent when this card is a follower in a run
+  // whose head was tapped (the head wiggles itself, via onClick below).
+  // Keyed on the tap nonce so it replays on every tap; `order` is read
+  // from the current render and only ever changes alongside the nonce.
+  useEffect(() => {
+    if (!groupWiggle) return
+    playWiggle(groupWiggle.order * WIGGLE_STAGGER_S)
+  }, [groupWiggle?.nonce, groupWiggle?.order, playWiggle])
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     setIsPressed(true)

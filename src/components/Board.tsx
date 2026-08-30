@@ -58,9 +58,9 @@ export function Board() {
   const [dealGeneration, setDealGeneration] = useState(0)
   const [winInfo, setWinInfo] = useState<WinInfo | null>(null)
   const [justDrawnId, setJustDrawnId] = useState<string | null>(null)
-  // Cards relocated by the most recent move — drives their one-shot
-  // "landed" wiggle + sparkle via RecentMovesContext.
-  const [justMovedIds, setJustMovedIds] = useState<ReadonlySet<string>>(() => new Set())
+  // Cards relocated by the most recent move, in run order — drives their
+  // staggered "landed" wiggle + sparkle via RecentMovesContext.
+  const [justMovedIds, setJustMovedIds] = useState<readonly string[]>([])
   // Whether a real drag (past the movement threshold) is currently under
   // way — set on drag start, cleared on drop or cancel — purely so the
   // piles that could ever be a destination can show a hint outline. This
@@ -82,7 +82,7 @@ export function Board() {
 
   useEffect(() => engine.on('won', (payload) => setWinInfo(payload)), [engine])
   useEffect(() => engine.on('drawn', ({ cardId }) => setJustDrawnId(cardId)), [engine])
-  useEffect(() => engine.on('moved', ({ cardIds }) => setJustMovedIds(new Set(cardIds))), [engine])
+  useEffect(() => engine.on('moved', ({ cardIds }) => setJustMovedIds(cardIds)), [engine])
 
   // Drives the cascading deal-in animation: pop one card off the queue at
   // a time so each lands with its own spring via the card's layoutId.

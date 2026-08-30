@@ -29,6 +29,8 @@ const STAGE_WIDTH = columnLeft(TABLEAU_COLUMNS - 1) + CARD_WIDTH
 // tableau columns, rather than a separately right-anchored group — that's
 // what makes them land in the same columns as the piles beneath them.
 const FOUNDATION_START_COLUMN = TABLEAU_COLUMNS - FOUNDATION_COUNT
+// Total width of the foundation group, for centering it on mobile.
+const FOUNDATION_SPAN = (FOUNDATION_COUNT - 1) * COLUMN_STRIDE + CARD_WIDTH
 const TABLEAU_TOP = CARD_HEIGHT + 32
 const TABLEAU_GROWTH_BUDGET = 460
 // On mobile, the stock/waste pair gets its own row at the very bottom of
@@ -79,6 +81,14 @@ export function Board() {
   const stageHeight = TABLEAU_TOP + TABLEAU_GROWTH_BUDGET + (isMobileLayout ? BOTTOM_ROW_HEIGHT : 0)
   const stockWasteTop = isMobileLayout ? stageHeight - CARD_HEIGHT : 0
   const stockWasteLeft = isMobileLayout ? (STAGE_WIDTH - STOCK_WASTE_WIDTH) / 2 : columnLeft(0)
+  // Desktop keeps the foundations above the rightmost tableau columns
+  // (the stock/waste fill the gap on the left). On mobile that gap is
+  // empty — stock/waste have dropped to their own bottom row — so centre
+  // the foundation group instead of leaving it hugging the right edge.
+  const foundationLeft = (index: number) =>
+    isMobileLayout
+      ? (STAGE_WIDTH - FOUNDATION_SPAN) / 2 + index * COLUMN_STRIDE
+      : columnLeft(FOUNDATION_START_COLUMN + index)
 
   useEffect(() => engine.on('won', (payload) => setWinInfo(payload)), [engine])
   useEffect(() => engine.on('drawn', ({ cardId }) => setJustDrawnId(cardId)), [engine])
@@ -184,7 +194,7 @@ export function Board() {
                   <div
                     key={foundation.id}
                     className="absolute top-0"
-                    style={{ left: columnLeft(FOUNDATION_START_COLUMN + index) }}
+                    style={{ left: foundationLeft(index) }}
                   >
                     <FoundationSlotView
                       pile={foundation}

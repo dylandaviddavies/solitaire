@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { StageScaleContext } from '../lib/StageScaleContext'
 
+// How far past its designed pixel size the board may be enlarged to fill
+// a roomy desktop viewport. Past roughly 2x the cards just look oversized
+// without making the game any easier to read, so this caps the zoom on
+// big monitors while smaller screens keep scaling down as far as needed.
+const MAX_SCALE = 2
+
 interface ResponsiveStageProps {
   baseWidth: number
   baseHeight: number
@@ -8,11 +14,12 @@ interface ResponsiveStageProps {
 }
 
 /**
- * Scales a fixed-size board down to fit whichever dimension is tighter —
- * width on a narrow phone, height on a short one — and never up. The
- * parent is expected to hand this component the full leftover space (a
- * flex-1 region between the toolbar and the footer hint) so the board can
- * be centered in both axes instead of just pinned to the top.
+ * Scales a fixed-size board to fit whichever dimension is tighter — width
+ * on a narrow phone, height on a short one — shrinking without limit but
+ * enlarging only up to `MAX_SCALE`. The parent is expected to hand this
+ * component the full leftover space (a flex-1 region between the toolbar
+ * and the footer hint) so the board can be centered in both axes instead
+ * of just pinned to the top.
  */
 export function ResponsiveStage({ baseWidth, baseHeight, children }: ResponsiveStageProps) {
   const outerRef = useRef<HTMLDivElement>(null)
@@ -24,7 +31,7 @@ export function ResponsiveStage({ baseWidth, baseHeight, children }: ResponsiveS
     const update = () => {
       const widthScale = el.clientWidth / baseWidth
       const heightScale = el.clientHeight / baseHeight
-      setScale(Math.min(1, widthScale, heightScale))
+      setScale(Math.min(MAX_SCALE, widthScale, heightScale))
     }
     update()
     const observer = new ResizeObserver(update)

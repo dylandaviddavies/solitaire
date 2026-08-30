@@ -7,6 +7,7 @@ import { useIsMobileLayout } from '../hooks/useIsMobileLayout'
 import { BACKGROUND_GRADIENTS } from '../lib/backgrounds'
 import { DropRegistryProvider } from '../lib/DropRegistryContext'
 import { CARD_HEIGHT, CARD_WIDTH, COLUMN_GAP } from '../lib/layout'
+import { RecentMovesContext } from '../lib/RecentMovesContext'
 import type { SelectedCard } from '../lib/types'
 import { FoundationSlotView } from './FoundationSlotView'
 import { ResponsiveStage } from './ResponsiveStage'
@@ -57,6 +58,9 @@ export function Board() {
   const [dealGeneration, setDealGeneration] = useState(0)
   const [winInfo, setWinInfo] = useState<WinInfo | null>(null)
   const [justDrawnId, setJustDrawnId] = useState<string | null>(null)
+  // Cards relocated by the most recent move — drives their one-shot
+  // "landed" wiggle + sparkle via RecentMovesContext.
+  const [justMovedIds, setJustMovedIds] = useState<ReadonlySet<string>>(() => new Set())
   // Whether a real drag (past the movement threshold) is currently under
   // way — set on drag start, cleared on drop or cancel — purely so the
   // piles that could ever be a destination can show a hint outline. This
@@ -78,6 +82,7 @@ export function Board() {
 
   useEffect(() => engine.on('won', (payload) => setWinInfo(payload)), [engine])
   useEffect(() => engine.on('drawn', ({ cardId }) => setJustDrawnId(cardId)), [engine])
+  useEffect(() => engine.on('moved', ({ cardIds }) => setJustMovedIds(new Set(cardIds))), [engine])
 
   // Drives the cascading deal-in animation: pop one card off the queue at
   // a time so each lands with its own spring via the card's layoutId.
@@ -157,32 +162,65 @@ export function Board() {
 
   return (
     <DropRegistryProvider>
-      <div
-        className={`flex h-dvh w-full flex-col items-center overflow-hidden bg-gradient-to-b ${BACKGROUND_GRADIENTS[background]}`}
-      >
-        <Toolbar
-          movesCount={engine.movesCount}
-          startedAtMs={engine.startedAtMs}
-          won={Boolean(winInfo)}
-          canUndo={engine.canUndo}
-          canAutoComplete={engine.canAutoComplete()}
-          onNewGame={handleNewGame}
-          onUndo={() => engine.undo()}
-          onAutoComplete={handleAutoComplete}
-        />
+      <RecentMovesContext.Provider value={justMovedIds}>
+        <div
+          className={`flex h-dvh w-full flex-col items-center overflow-hidden bg-gradient-to-b ${BACKGROUND_GRADIENTS[background]}`}
+        >
+          <Toolbar
+            movesCount={engine.movesCount}
+            startedAtMs={engine.startedAtMs}
+            won={Boolean(winInfo)}
+            canUndo={engine.canUndo}
+            canAutoComplete={engine.canAutoComplete()}
+            onNewGame={handleNewGame}
+            onUndo={() => engine.undo()}
+            onAutoComplete={handleAutoComplete}
+          />
 
-        <div className="flex min-h-0 w-full flex-1">
-          <ResponsiveStage baseWidth={STAGE_WIDTH} baseHeight={stageHeight}>
-            <div className="relative" style={{ width: STAGE_WIDTH, height: stageHeight }}>
-              {engine.foundations.map((foundation, index) => (
-                <div
-                  key={foundation.id}
-                  className="absolute top-0"
-                  style={{ left: columnLeft(FOUNDATION_START_COLUMN + index) }}
-                >
-                  <FoundationSlotView
-                    pile={foundation}
+          <div className="flex min-h-0 w-full flex-1">
+            <ResponsiveStage baseWidth={STAGE_WIDTH} baseHeight={stageHeight}>
+              <div className="relative" style={{ width: STAGE_WIDTH, height: stageHeight }}>
+                {engine.foundations.map((foundation, index) => (
+                  <div
+                    key={foundation.id}
+                    className="absolute top-0"
+                    style={{ left: columnLeft(FOUNDATION_START_COLUMN + index) }}
+                  >
+                    <FoundationSlotView
+                      pile={foundation}
+                      selected={selected}
+                      onDrop={handleDrop}
+                      onSelect={handleSelect}
+                      onActivate={handleActivate}
+                      onDragStart={handleDragStart}
+                      onDragEnd={handleDragEnd}
+                      isDropTarget={isDropTarget}
+                    />
+                  </div>
+                ))}
+
+                <div className="absolute left-0 flex" style={{ top: TABLEAU_TOP, gap: COLUMN_GAP }}>
+                  {engine.tableau.map((column) => (
+                    <TableauColumnView
+                      key={column.id}
+                      pile={column}
+                      selected={selected}
+                      onDrop={handleDrop}
+                      onSelect={handleSelect}
+                      onActivate={handleActivate}
+                      onDragStart={handleDragStart}
+                      onDragEnd={handleDragEnd}
+                      isDropTarget={isDropTarget}
+                    />
+                  ))}
+                </div>
+
+                <div className="absolute flex" style={{ left: stockWasteLeft, top: stockWasteTop, gap: COLUMN_GAP }}>
+                  <StockPileView pile={engine.stock} onDraw={() => engine.draw()} />
+                  <WastePileView
+                    pile={engine.waste}
                     selected={selected}
+                    justDrawnId={justDrawnId}
                     onDrop={handleDrop}
                     onSelect={handleSelect}
                     onActivate={handleActivate}
@@ -191,51 +229,20 @@ export function Board() {
                     isDropTarget={isDropTarget}
                   />
                 </div>
-              ))}
-
-              <div className="absolute left-0 flex" style={{ top: TABLEAU_TOP, gap: COLUMN_GAP }}>
-                {engine.tableau.map((column) => (
-                  <TableauColumnView
-                    key={column.id}
-                    pile={column}
-                    selected={selected}
-                    onDrop={handleDrop}
-                    onSelect={handleSelect}
-                    onActivate={handleActivate}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
-                    isDropTarget={isDropTarget}
-                  />
-                ))}
               </div>
+            </ResponsiveStage>
+          </div>
 
-              <div className="absolute flex" style={{ left: stockWasteLeft, top: stockWasteTop, gap: COLUMN_GAP }}>
-                <StockPileView pile={engine.stock} onDraw={() => engine.draw()} />
-                <WastePileView
-                  pile={engine.waste}
-                  selected={selected}
-                  justDrawnId={justDrawnId}
-                  onDrop={handleDrop}
-                  onSelect={handleSelect}
-                  onActivate={handleActivate}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                  isDropTarget={isDropTarget}
-                />
-              </div>
-            </div>
-          </ResponsiveStage>
+          <div className="pb-2 sm:pb-6" />
         </div>
 
-        <div className="pb-2 sm:pb-6" />
-      </div>
-
-      <WinOverlay
-        visible={Boolean(winInfo)}
-        movesCount={winInfo?.movesMade ?? 0}
-        elapsedMs={winInfo?.elapsedMs ?? 0}
-        onNewGame={handleNewGame}
-      />
+        <WinOverlay
+          visible={Boolean(winInfo)}
+          movesCount={winInfo?.movesMade ?? 0}
+          elapsedMs={winInfo?.elapsedMs ?? 0}
+          onNewGame={handleNewGame}
+        />
+      </RecentMovesContext.Provider>
     </DropRegistryProvider>
   )
 }

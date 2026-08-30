@@ -20,6 +20,11 @@ export class TransferMove implements Move {
     this.cards = cards
   }
 
+  /** Ids of the cards this move relocates, for UI landing feedback. */
+  get movedCardIds(): string[] {
+    return this.cards.map((card) => card.id)
+  }
+
   execute(): void {
     const removed = this.source.removeFrom(this.cards[0])
     this.destination.pushMany(removed)

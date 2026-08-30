@@ -55,6 +55,9 @@ interface GameEvents {
   /** A card was dealt face-up onto the waste pile — the UI uses this to
    * play a flip animation for that specific card. */
   drawn: { cardId: string }
+  /** One or more cards were relocated to a different pile (drag-drop,
+   * tap-to-move or auto-play) — the UI plays a "landed" flourish on them. */
+  moved: { cardIds: string[] }
   [key: string]: unknown
 }
 
@@ -333,6 +336,9 @@ export class GameEngine {
     move.execute()
     this.history.push(move)
     this.movesMade += 1
+    if (move instanceof TransferMove) {
+      this.events.emit('moved', { cardIds: move.movedCardIds })
+    }
     this.emitChange()
   }
 

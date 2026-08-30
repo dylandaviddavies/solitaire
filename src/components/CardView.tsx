@@ -1,12 +1,15 @@
 import { animate, motion, useMotionValue, useSpring, useTransform } from 'motion/react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Card } from '../domain/Card'
 import { useCardBackPreference } from '../hooks/useCardBackPreference'
+import { useWiggle } from '../hooks/useWiggle'
 import { useDropRegistry } from '../lib/DropRegistryContext'
 import { CARD_HEIGHT, CARD_WIDTH } from '../lib/layout'
+import { useRecentlyMoved } from '../lib/RecentMovesContext'
 import { useStageScale } from '../lib/StageScaleContext'
 import { CardBack } from './CardBack'
 import { CardFace } from './CardFace'
+import { SparkleBurst } from './SparkleBurst'
 
 /** A motion value driving a single number — named via the hook's own
  * return type rather than importing framer-motion's internal `MotionValue`
@@ -158,6 +161,26 @@ export function CardView({
   const rawTilt = useMotionValue(0)
   const swayRotate = useSpring(rawTilt, { stiffness: 90, damping: 14, mass: 1.1 })
 
+  // A short playful wiggle fired for tap / drop feedback. Applied to the
+  // inner card element (below), not this one, so it pivots about the
+  // card's centre rather than the top-edge pinch point the drag sway
+  // uses.
+  const { angle: wiggleAngle, play: playWiggle } = useWiggle()
+
+  // A card that just landed here from a move gets a one-shot wiggle +
+  // sparkle as it mounts into its new pile. `recentlyMoved` is true for
+  // exactly that first render; the ref stops a later state change from
+  // replaying it on the same instance.
+  const recentlyMoved = useRecentlyMoved(card.id)
+  const landedPlayed = useRef(false)
+  const [sparkling, setSparkling] = useState(false)
+  useEffect(() => {
+    if (!recentlyMoved || landedPlayed.current) return
+    landedPlayed.current = true
+    playWiggle()
+    setSparkling(true)
+  }, [recentlyMoved, playWiggle])
+
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     setIsPressed(true)
     // Capture the pointer unconditionally, even for a non-draggable card
@@ -234,9 +257,12 @@ export function CardView({
       if (!moved) {
         // Snap back to the rest position — the pile it came from hasn't
         // changed, so there's nowhere else for it to go. `retarget` eases
-        // it back smoothly instead of teleporting.
+        // it back smoothly instead of teleporting, and a wiggle sells the
+        // little "nope" bounce. (A successful drop instead wiggles on the
+        // card as it mounts into its new pile — see the landed effect.)
         retarget(rawX, catchUpX, 0, SNAP_BACK)
         retarget(rawY, catchUpY, 0, SNAP_BACK)
+        playWiggle()
       }
     }
 
@@ -290,6 +316,7 @@ export function CardView({
           wasDragged.current = false
           return
         }
+        playWiggle()
         onSelect(card, pileId)
       }}
       onDoubleClick={(event: React.MouseEvent) => {
@@ -313,7 +340,11 @@ export function CardView({
           rotateY: { duration: 0.7, ease: 'easeInOut' },
           default: { type: 'spring', stiffness: 380, damping: 26 },
         }}
-        style={{ transformStyle: 'preserve-3d' }}
+        // `rotate` (the wiggle) pivots about this element's centre — its
+        // default transform origin — giving an even side-to-side shake
+        // instead of the top-anchored swing the outer element uses while
+        // dragging.
+        style={{ transformStyle: 'preserve-3d', rotate: wiggleAngle }}
       >
         <div className="absolute inset-0 [backface-visibility:hidden]">
           <CardFace card={card} />
@@ -325,6 +356,8 @@ export function CardView({
           <CardBack variant={cardBack} />
         </div>
       </motion.div>
+
+      {sparkling && <SparkleBurst onComplete={() => setSparkling(false)} />}
     </motion.div>
   )
 }

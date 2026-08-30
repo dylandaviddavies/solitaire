@@ -56,12 +56,15 @@ export function Board() {
   const [dealGeneration, setDealGeneration] = useState(0)
   const [winInfo, setWinInfo] = useState<WinInfo | null>(null)
   const [justDrawnId, setJustDrawnId] = useState<string | null>(null)
-  // Tracks the card currently being dragged (if any) purely so the piles
-  // that would legally accept it can light up — set once a real drag
-  // crosses the movement threshold, cleared on drop or cancel. This is
-  // deliberately separate from `selected` (tap-to-move), which has its
-  // own, unrelated lifecycle.
-  const [dragging, setDragging] = useState<SelectedCard | null>(null)
+  // Whether a real drag (past the movement threshold) is currently under
+  // way — set on drag start, cleared on drop or cancel — purely so the
+  // piles that could ever be a destination can show a hint outline. This
+  // deliberately doesn't distinguish which card is being dragged: the
+  // hint is a "here are the kinds of places you can drop a card" map, the
+  // same every time, not a computed answer for this specific card (that
+  // would just tell the player where the correct move is). It's also
+  // separate from `selected` (tap-to-move), which has its own lifecycle.
+  const [isDragging, setIsDragging] = useState(false)
   const isMobileLayout = useIsMobileLayout()
 
   // These depend on `isMobileLayout`, so they're computed per render
@@ -121,18 +124,18 @@ export function Board() {
     [engine],
   )
 
-  const handleDragStart = useCallback((card: Card, pileId: string) => {
-    setDragging({ card, pileId })
+  const handleDragStart = useCallback(() => {
+    setIsDragging(true)
   }, [])
 
   const handleDragEnd = useCallback(() => {
-    setDragging(null)
+    setIsDragging(false)
   }, [])
 
-  const isDropTarget = useCallback(
-    (pileId: string) => dragging != null && engine.canMoveCard(dragging.card, pileId),
-    [engine, dragging],
-  )
+  // Every pile that ever calls this (foundations and tableau columns —
+  // waste and stock never do, since neither can ever accept a drop)
+  // shows the same hint outline for the whole duration of any drag.
+  const isDropTarget = useCallback(() => isDragging, [isDragging])
 
   const handleNewGame = useCallback(() => {
     engine.startNewGame()

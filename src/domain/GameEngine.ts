@@ -174,27 +174,6 @@ export class GameEngine {
   }
 
   /**
-   * Read-only preview of whether `moveCard(card, destinationId)` would
-   * currently succeed — used to highlight valid drop zones while a card is
-   * being dragged. Deliberately mirrors `moveCard`'s validation exactly
-   * (down to the foundation/run-length rule) but never mutates state or
-   * emits events, so it's safe to call on every render.
-   */
-  canMoveCard(card: Card, destinationId: string): boolean {
-    const source = this.findPileOf(card)
-    const destination = this.findPile(destinationId)
-    if (!source || !destination || source === destination) return false
-    if (!source.canLift(card)) return false
-
-    const run = source.kind === PileKind.Tableau
-      ? (source as TableauPile).runFrom(card)
-      : [card]
-
-    if (destination.kind === PileKind.Foundation && run.length !== 1) return false
-    return destination.canAccept(run[0])
-  }
-
-  /**
    * Attempts to move `card` (and, if it's the base of a tableau run, every
    * card above it) onto the pile identified by `destinationId`.
    * Returns true if the move was legal and applied.

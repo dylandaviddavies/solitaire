@@ -1,4 +1,4 @@
-import { motion, useMotionValue, useSpring } from 'motion/react'
+import { animate, motion, useMotionValue, useSpring, useTransform } from 'motion/react'
 import { useRef, useState } from 'react'
 import type { Card } from '../domain/Card'
 import { useCardBackPreference } from '../hooks/useCardBackPreference'
@@ -81,15 +81,40 @@ export function CardView({
   // actual drag is recognized — a real card lifts as soon as you pinch it.
   const [isPressed, setIsPressed] = useState(false)
 
-  // The raw target position jumps straight to the pointer on every move;
-  // springing it into `x`/`y` makes the card glide toward the cursor
-  // instead of teleporting there, while still feeling responsive enough
-  // to track a drag.
+  // `rawX`/`rawY` are the card's exact target position — set directly
+  // (never sprung) on every pointer move, so once a drag is under way the
+  // card is glued to the cursor with zero lag, however fast it moves.
+  // `catchUpX`/`catchUpY` are a short-lived "how far behind are we"
+  // offset, added on top: non-zero only for the brief moment right after
+  // a drag starts (the card's pinch-point may be some distance from
+  // wherever it was actually grabbed) or ends without a valid drop
+  // (snapping back to rest), and animated down to 0 by `retarget` below.
+  // Splitting these means the settle-in/settle-back transitions can still
+  // ease smoothly without adding any per-frame lag to live tracking.
   const rawX = useMotionValue(0)
   const rawY = useMotionValue(0)
-  const dragSpring = { stiffness: 480, damping: 34, mass: 0.6 }
-  const x = useSpring(rawX, dragSpring)
-  const y = useSpring(rawY, dragSpring)
+  const catchUpX = useMotionValue(0)
+  const catchUpY = useMotionValue(0)
+  const x = useTransform([rawX, catchUpX], (latest) => (latest[0] as number) + (latest[1] as number))
+  const y = useTransform([rawY, catchUpY], (latest) => (latest[0] as number) + (latest[1] as number))
+  const catchUpSpring = { type: 'spring' as const, stiffness: 480, damping: 34, mass: 0.6 }
+
+  /**
+   * Jumps `raw` straight to `newValue` — so every tracking update after
+   * this is instant and lag-free — while keeping the rendered position
+   * exactly where it visually was a moment ago, by loading the entire
+   * jump into `catchUp` and animating that back down to 0.
+   */
+  const retarget = (
+    raw: typeof rawX,
+    catchUp: typeof catchUpX,
+    newValue: number,
+  ) => {
+    const currentRendered = raw.get() + catchUp.get()
+    raw.set(newValue)
+    catchUp.set(currentRendered - newValue)
+    animate(catchUp, 0, catchUpSpring)
+  }
 
   // Raw tilt target jumps around with every pointer-move delta; springing
   // it — slowly — produces the organic, laggy "swaying" of a card being
@@ -111,18 +136,18 @@ export function CardView({
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!restRect.current) return
 
+    let justStarted = false
     if (!isDraggingRef.current) {
       const moved = Math.hypot(event.clientX - startPoint.current.x, event.clientY - startPoint.current.y)
       if (moved < DRAG_START_THRESHOLD_PX) return
       isDraggingRef.current = true
       wasDragged.current = true
+      justStarted = true
       onDragStart?.(card, pileId)
     }
 
     // Anchor the card's top-center to the pointer, wherever it was grabbed.
-    // Setting the raw target (rather than x/y directly) lets the spring
-    // above ease the card toward it instead of snapping instantly. Uses
-    // the card's actual measured width (not the logical CARD_WIDTH
+    // Uses the card's actual measured width (not the logical CARD_WIDTH
     // constant) so the anchor stays exact even when the board is scaled
     // down to fit a narrow/mobile viewport. The resulting screen-pixel
     // delta is then divided by the stage scale, since a translate applied
@@ -130,8 +155,20 @@ export function CardView({
     // rendered.
     const targetLeft = event.clientX - restRect.current.width / 2
     const targetTop = event.clientY
-    rawX.set((targetLeft - restRect.current.left) / stageScale)
-    rawY.set((targetTop - restRect.current.top) / stageScale)
+    const targetX = (targetLeft - restRect.current.left) / stageScale
+    const targetY = (targetTop - restRect.current.top) / stageScale
+
+    if (justStarted) {
+      // The very first move of a drag can jump the anchor a real distance
+      // from wherever the card was actually grabbed — ease that one jump
+      // in via `retarget` rather than teleporting.
+      retarget(rawX, catchUpX, targetX)
+      retarget(rawY, catchUpY, targetY)
+    } else {
+      // Every subsequent move: track the cursor exactly, no smoothing.
+      rawX.set(targetX)
+      rawY.set(targetY)
+    }
 
     rawTilt.set(clamp((event.clientX - lastClientX.current) * 2.2, -SWAY_MAX_DEG, SWAY_MAX_DEG))
     lastClientX.current = event.clientX
@@ -147,10 +184,10 @@ export function CardView({
       const moved = destinationId ? onDrop(card, destinationId) : false
       if (!moved) {
         // Snap back to the rest position — the pile it came from hasn't
-        // changed, so there's nowhere else for it to go. Retargeting the
-        // raw values lets the same following-spring ease it back smoothly.
-        rawX.set(0)
-        rawY.set(0)
+        // changed, so there's nowhere else for it to go. `retarget` eases
+        // it back smoothly instead of teleporting.
+        retarget(rawX, catchUpX, 0)
+        retarget(rawY, catchUpY, 0)
       }
     }
 

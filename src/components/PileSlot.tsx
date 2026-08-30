@@ -2,6 +2,12 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { useDropRegistry } from '../lib/DropRegistryContext'
 import { CARD_HEIGHT, CARD_WIDTH } from '../lib/layout'
 
+// How far the drop-zone hint outline extends beyond the pile's own tight
+// bounds — hugging the cards exactly read as cramped, so the outline
+// floats a little outside them instead. Small enough to stay clear of the
+// neighboring pile's outline given the board's column/row gaps.
+const DROP_ZONE_PADDING = 10
+
 interface PileSlotProps {
   pileId: string
   minHeight?: number
@@ -59,7 +65,10 @@ export function PileSlot({
       )}
       {children}
       {dropTarget && (
-        <div className="pointer-events-none absolute inset-0 z-20 rounded-2xl border-[3px] border-dashed border-slate-300/70" />
+        <div
+          className="pointer-events-none absolute z-20 rounded-2xl border-[3px] border-dashed border-slate-300/70"
+          style={{ inset: -DROP_ZONE_PADDING }}
+        />
       )}
     </div>
   )

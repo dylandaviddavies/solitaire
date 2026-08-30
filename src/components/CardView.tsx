@@ -285,8 +285,12 @@ export function CardView({
         onActivate(card)
       }}
     >
+      {/* Radius matches the card faces below so the animated box-shadow
+        * traces the visible card edge exactly. No border here: a
+        * translucent border sat just inside the shadow's hard 3px lip and
+        * read as a doubled, broken edge. */}
       <motion.div
-        className="relative h-full w-full rounded-[16px] border-[3px] border-black/15"
+        className="relative h-full w-full rounded-[14px]"
         initial={revealOnMount ? { rotateY: 180 } : false}
         animate={{
           rotateY: card.faceUp ? 0 : 180,

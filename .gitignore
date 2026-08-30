@@ -20,3 +20,7 @@ npm-debug.log*
 # Playwright / test artifacts used only while developing
 screenshot*.mjs
 test-*.mjs
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

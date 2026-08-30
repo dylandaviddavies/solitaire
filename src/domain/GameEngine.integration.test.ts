@@ -1,62 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { RANKS, Suit, type Rank } from './Card'
-import { GameEngine, type GameSnapshot, type SerializedCard } from './GameEngine'
-
-// ---------------------------------------------------------------------------
-// Helpers for building deterministic boards
-// ---------------------------------------------------------------------------
-
-const ALL_SUITS: Suit[] = [Suit.Hearts, Suit.Clubs, Suit.Diamonds, Suit.Spades]
-
-const card = (rank: Rank, suit: Suit, faceUp = false): SerializedCard => ({ rank, suit, faceUp })
-
-/** Marks the last card of a pile face-up, the rest face-down. */
-const column = (cards: SerializedCard[]): SerializedCard[] =>
-  cards.map((c, i) => ({ ...c, faceUp: i === cards.length - 1 }))
-
-function emptySnapshot(): GameSnapshot {
-  return {
-    version: 1,
-    stock: [],
-    waste: [],
-    foundations: [[], [], [], []],
-    tableau: [[], [], [], [], [], [], []],
-    dealQueue: [],
-    movesMade: 0,
-    startedAt: 0,
-  }
-}
-
-/**
- * A rigged but fully legal starting position that a greedy player can win:
- *
- * - Tableau: seven columns, column `i` holds rank `i + 1` (Ace…Seven) of
- *   every suit, only the top card face-up. Playing each column top to a
- *   foundation reveals the next, cascading all 28 cards up and leaving all
- *   four foundations on the Seven.
- * - Stock: the remaining 24 cards (Eight…King of every suit) ordered so
- *   that drawing them one at a time feeds the foundations in order.
- *
- * It exercises a real playthrough — reveals, tableau→foundation transfers,
- * and draws from the stock — end to end.
- */
-function winnableSnapshot(): GameSnapshot {
-  const snapshot = emptySnapshot()
-
-  snapshot.tableau = Array.from({ length: 7 }, (_, i) =>
-    column(ALL_SUITS.map((suit) => card(RANKS[i], suit))),
-  )
-
-  const stockDrawOrder: SerializedCard[] = []
-  for (const rank of RANKS.slice(7)) {
-    for (const suit of ALL_SUITS) stockDrawOrder.push(card(rank, suit, false))
-  }
-  // `stock` is stored bottom-to-top and drawn from the top, so reverse the
-  // intended draw order.
-  snapshot.stock = stockDrawOrder.reverse()
-
-  return snapshot
-}
+import { RANKS, Suit } from './Card'
+import { GameEngine, type SerializedCard } from './GameEngine'
+import {
+  ALL_SUITS,
+  card,
+  emptySnapshot,
+  winnableDealSnapshot,
+} from './GameEngine.testFixtures'
 
 // ---------------------------------------------------------------------------
 // A small greedy solver — enough to finish a favourable deal
@@ -177,7 +127,7 @@ function playGreedily(engine: GameEngine, maxIterations = 1000): PlayLog {
 describe('GameEngine — full-game integration', () => {
   it('plays a rigged deal through to a complete win', () => {
     const engine = new GameEngine()
-    expect(engine.restore(winnableSnapshot())).toBe(true)
+    expect(engine.restore(winnableDealSnapshot())).toBe(true)
 
     let wonEvents = 0
     engine.on('won', () => {

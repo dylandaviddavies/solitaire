@@ -4,7 +4,7 @@ import { TABLEAU_COLUMNS } from '../domain/GameEngine'
 import { useGameEngine } from '../hooks/useGameEngine'
 import { useIsMobileLayout } from '../hooks/useIsMobileLayout'
 import { DropRegistryProvider } from '../lib/DropRegistryContext'
-import { CARD_HEIGHT, CARD_WIDTH } from '../lib/layout'
+import { CARD_HEIGHT, CARD_WIDTH, COLUMN_GAP } from '../lib/layout'
 import type { SelectedCard } from '../lib/types'
 import { FoundationSlotView } from './FoundationSlotView'
 import { ResponsiveStage } from './ResponsiveStage'
@@ -15,7 +15,6 @@ import { WastePileView } from './WastePileView'
 import { WinOverlay } from './WinOverlay'
 
 const FOUNDATION_COUNT = 4
-const COLUMN_GAP = 20
 // Every column-like slot (tableau, foundations) sits on the same
 // left-to-right grid, one card-width-plus-gap apart, so a slot at tableau
 // index `i` and a foundation meant to sit "above" it always share an x

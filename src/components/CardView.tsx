@@ -77,6 +77,11 @@ interface CardViewProps {
 // through the fan instead of every card shaking in lockstep.
 const WIGGLE_STAGGER_S = 0.05
 
+// Viewer distance for the face-up flip. Without a perspective the rotateY
+// is just a flat horizontal squash that reads as a spin; with one the
+// card visibly turns over in depth, front sweeping in from the left.
+const FLIP_PERSPECTIVE_PX = 640
+
 const REST_SHADOW =
   '0 3px 0 rgba(15,15,20,0.35), 0 8px 14px rgba(15,15,20,0.28)'
 const LIFT_SHADOW =
@@ -333,6 +338,10 @@ export function CardView({
       style={{
         width: CARD_WIDTH,
         height: CARD_HEIGHT,
+        // Viewing depth for the inner element's rotateY flip. A plain CSS
+        // property (not a transform), so it composes cleanly with the
+        // pointer-driven x/y/scale on this element.
+        perspective: FLIP_PERSPECTIVE_PX,
         ...style,
         x: followTransform?.x ?? x,
         y: followTransform?.y ?? y,
@@ -384,7 +393,8 @@ export function CardView({
         // `rotate` (the wiggle) pivots about this element's centre — its
         // default transform origin — giving an even side-to-side shake
         // instead of the top-anchored swing the outer element uses while
-        // dragging.
+        // dragging. `preserve-3d` keeps the two faces in depth so the
+        // parent's `perspective` turns the rotateY into a real flip.
         style={{ transformStyle: 'preserve-3d', rotate: wiggleAngle }}
       >
         <div className="absolute inset-0 [backface-visibility:hidden]">

@@ -61,6 +61,16 @@ const SWAY_MAX_DEG = 16
 const DRAG_START_THRESHOLD_PX = 4
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
+// Settle transitions for the `catchUp` offset (see below). `LOCK_ON` runs
+// once as a drag begins: a short, finite ease that glides the card from
+// wherever it was grabbed onto the cursor and then — crucially — ends at
+// exactly 0, so from that point on the card is pixel-locked to the
+// pointer with no residual trailing. `SNAP_BACK` returns the card to its
+// rest slot after an invalid drop, where a bit of spring is welcome.
+const LOCK_ON = { type: 'tween' as const, duration: 0.16, ease: 'easeOut' as const }
+const SNAP_BACK = { type: 'spring' as const, stiffness: 480, damping: 34, mass: 0.6 }
+type SettleTransition = typeof LOCK_ON | typeof SNAP_BACK
+
 // The card is always "held" by its top-center, like pinching the top edge
 // between two fingers — not by whichever pixel you happened to click.
 // Wherever the pointer goes, that exact point follows it, and the sway
@@ -122,23 +132,24 @@ export function CardView({
   const catchUpY = useMotionValue(0)
   const x = useTransform([rawX, catchUpX], (latest) => (latest[0] as number) + (latest[1] as number))
   const y = useTransform([rawY, catchUpY], (latest) => (latest[0] as number) + (latest[1] as number))
-  const catchUpSpring = { type: 'spring' as const, stiffness: 480, damping: 34, mass: 0.6 }
 
   /**
    * Jumps `raw` straight to `newValue` — so every tracking update after
    * this is instant and lag-free — while keeping the rendered position
    * exactly where it visually was a moment ago, by loading the entire
-   * jump into `catchUp` and animating that back down to 0.
+   * jump into `catchUp` and animating that back down to 0 with the given
+   * `transition`.
    */
   const retarget = (
     raw: typeof rawX,
     catchUp: typeof catchUpX,
     newValue: number,
+    transition: SettleTransition,
   ) => {
     const currentRendered = raw.get() + catchUp.get()
     raw.set(newValue)
     catchUp.set(currentRendered - newValue)
-    animate(catchUp, 0, catchUpSpring)
+    animate(catchUp, 0, transition)
   }
 
   // Raw tilt target jumps around with every pointer-move delta; springing
@@ -198,9 +209,10 @@ export function CardView({
     if (justStarted) {
       // The very first move of a drag can jump the anchor a real distance
       // from wherever the card was actually grabbed — ease that one jump
-      // in via `retarget` rather than teleporting.
-      retarget(rawX, catchUpX, targetX)
-      retarget(rawY, catchUpY, targetY)
+      // in via `retarget` rather than teleporting. `LOCK_ON` finishes
+      // fast and exactly, so tracking is pixel-tight immediately after.
+      retarget(rawX, catchUpX, targetX, LOCK_ON)
+      retarget(rawY, catchUpY, targetY, LOCK_ON)
     } else {
       // Every subsequent move: track the cursor exactly, no smoothing.
       rawX.set(targetX)
@@ -223,8 +235,8 @@ export function CardView({
         // Snap back to the rest position — the pile it came from hasn't
         // changed, so there's nowhere else for it to go. `retarget` eases
         // it back smoothly instead of teleporting.
-        retarget(rawX, catchUpX, 0)
-        retarget(rawY, catchUpY, 0)
+        retarget(rawX, catchUpX, 0, SNAP_BACK)
+        retarget(rawY, catchUpY, 0, SNAP_BACK)
       }
     }
 

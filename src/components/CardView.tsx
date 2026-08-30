@@ -43,12 +43,14 @@ interface CardViewProps {
    * pile visually — see WastePileView/FoundationSlotView/StockPileView). */
   onDragStart?: (card: Card, pileId: string) => void
   onDragEnd?: () => void
-  /** Fires once, right as a real drag begins, handing up this card's own
-   * live position/rotation motion values so a parent (e.g.
-   * TableauColumnView) can pass them to the other cards in the same run
-   * as `followTransform`, making the whole run drag together instead of
-   * just the one card that was grabbed. */
-  onDragTransform?: (transform: DragTransform) => void
+  /** Fires the instant this card is pressed (before any movement),
+   * handing up its live position/rotation motion values so a parent
+   * (e.g. TableauColumnView) can hook the rest of the run onto them right
+   * away — the whole run then lifts and moves as one from first touch,
+   * with no lag before the lower cards catch up. `onPressEnd` fires on
+   * release/cancel whether or not a drag actually happened. */
+  onPressStart?: (transform: DragTransform) => void
+  onPressEnd?: () => void
   /** When set, this card is part of a run whose base is being dragged
    * elsewhere: it mirrors that card's position/rotation exactly instead
    * of driving its own, and skips its own layout/press styling. */
@@ -57,6 +59,18 @@ interface CardViewProps {
    * tapped. `nonce` changes on every tap (so a repeat tap replays it);
    * `order` is the card's place in the run, for the cascade delay. */
   groupWiggle?: { nonce: number; order: number }
+  /** Whether a plain press should give the usual tactile feedback — the
+   * card lifts under the pointer and the click wiggles it. Default true.
+   * Set false where the click is really a button (the stock: clicking it
+   * draws, and the card immediately flips away to the waste, so lifting
+   * it first just reads as a snap-back). */
+  liftOnPress?: boolean
+  /** Whether this card participates in the shared-layout (`layoutId`)
+   * system that FLIP-animates a card sliding from one pile to another.
+   * Default true. False for the stock, whose cards never travel — they
+   * sit face-down until consumed — so a draw should read as the waste
+   * card flipping in place, not sliding over from the deck. */
+  sharedLayout?: boolean
 }
 
 // Seconds of delay added per card down a run, so a group wiggle ripples
@@ -101,9 +115,12 @@ export function CardView({
   onActivate,
   onDragStart,
   onDragEnd,
-  onDragTransform,
+  onPressStart,
+  onPressEnd,
   followTransform,
   groupWiggle,
+  liftOnPress = true,
+  sharedLayout = true,
 }: CardViewProps) {
   const registry = useDropRegistry()
   const cardBack = useCardBackPreference()
@@ -194,15 +211,16 @@ export function CardView({
 
   // Wiggle triggered by a parent when this card is a follower in a run
   // whose head was tapped (the head wiggles itself, via onClick below).
-  // Keyed on the tap nonce so it replays on every tap; `order` is read
-  // from the current render and only ever changes alongside the nonce.
+  // Keyed on the tap nonce so it replays on every tap.
+  const groupWiggleNonce = groupWiggle?.nonce
+  const groupWiggleOrder = groupWiggle?.order ?? 0
   useEffect(() => {
-    if (!groupWiggle) return
-    playWiggle(groupWiggle.order * WIGGLE_STAGGER_S)
-  }, [groupWiggle?.nonce, groupWiggle?.order, playWiggle])
+    if (groupWiggleNonce === undefined) return
+    playWiggle(groupWiggleOrder * WIGGLE_STAGGER_S)
+  }, [groupWiggleNonce, groupWiggleOrder, playWiggle])
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    setIsPressed(true)
+    if (liftOnPress) setIsPressed(true)
     // Capture the pointer unconditionally, even for a non-draggable card
     // (e.g. the stock, which is clickable but never dragged). Without
     // this, the slightest pointer drift during a tap can carry the
@@ -212,6 +230,10 @@ export function CardView({
     // pointer event (move/up/cancel) still reaches this element.
     event.currentTarget.setPointerCapture(event.pointerId)
     if (!draggable) return
+    // Register the run with the parent now, on first touch, so every
+    // lower card in it is already hooked onto these motion values before
+    // any movement — no beat where only the grabbed card responds.
+    onPressStart?.({ x, y, rotate: swayRotate })
     const rect = event.currentTarget.getBoundingClientRect()
     restRect.current = { left: rect.left, top: rect.top, width: rect.width }
     startPoint.current = { x: event.clientX, y: event.clientY }
@@ -230,11 +252,6 @@ export function CardView({
       wasDragged.current = true
       justStarted = true
       onDragStart?.(card, pileId)
-      // Hand up this card's own live motion values so a parent (e.g.
-      // TableauColumnView) can pass them along to the other cards in the
-      // same run as `followTransform`, making the whole run drag as one
-      // unit instead of just the card that was actually grabbed.
-      onDragTransform?.({ x, y, rotate: swayRotate })
     }
 
     // Anchor the card's top-center to the pointer, wherever it was grabbed.
@@ -269,6 +286,8 @@ export function CardView({
   const handlePointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
     setIsPressed(false)
     rawTilt.set(0)
+    // Always release the run — a plain tap registered it on press too.
+    onPressEnd?.()
 
     if (isDraggingRef.current) {
       onDragEnd?.()
@@ -300,7 +319,7 @@ export function CardView({
       // enabling it when the card isn't currently pressed keeps the FLIP
       // animation for ordinary moves while leaving drags entirely to our
       // own math.
-      layout={!isPressed && !followTransform}
+      layout={sharedLayout && !isPressed && !followTransform}
       // Scopes that layout animation to "this card actually changed
       // pile" rather than "something, somewhere in the shared layoutId
       // group, re-rendered". Without this, dropping the top card of a
@@ -309,7 +328,7 @@ export function CardView({
       // otherwise re-measures every layout-enabled sibling on every
       // render and treats any of them as needing a corrective transition.
       layoutDependency={pileId}
-      layoutId={card.id}
+      layoutId={sharedLayout ? card.id : undefined}
       className="absolute left-0 top-0 touch-none"
       style={{
         width: CARD_WIDTH,
@@ -336,7 +355,7 @@ export function CardView({
           wasDragged.current = false
           return
         }
-        playWiggle()
+        if (liftOnPress) playWiggle()
         onSelect(card, pileId)
       }}
       onDoubleClick={(event: React.MouseEvent) => {
@@ -353,8 +372,10 @@ export function CardView({
         initial={revealOnMount ? { rotateY: 180 } : false}
         animate={{
           rotateY: card.faceUp ? 0 : 180,
-          y: selected || isPressed ? -14 : 0,
-          boxShadow: selected || isPressed ? LIFT_SHADOW : REST_SHADOW,
+          // `followTransform` set means this card is part of a run being
+          // carried — it lifts with the grabbed card, not just tracks it.
+          y: selected || isPressed || followTransform ? -14 : 0,
+          boxShadow: selected || isPressed || followTransform ? LIFT_SHADOW : REST_SHADOW,
         }}
         transition={{
           rotateY: { duration: 0.7, ease: 'easeInOut' },

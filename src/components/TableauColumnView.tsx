@@ -81,11 +81,9 @@ export function TableauColumnView({
             }}
             onActivate={onActivate}
             onDragStart={onDragStart}
-            onDragEnd={() => {
-              setDragOrigin(null)
-              onDragEnd()
-            }}
-            onDragTransform={(transform) => setDragOrigin({ index, transform })}
+            onDragEnd={onDragEnd}
+            onPressStart={(transform) => setDragOrigin({ index, transform })}
+            onPressEnd={() => setDragOrigin(null)}
             followTransform={isFollower ? dragOrigin!.transform : undefined}
             groupWiggle={
               inTappedRun

@@ -1,10 +1,11 @@
 import { useCallback } from 'react'
 import { animate, useMotionValue } from 'motion/react'
 
-// A quick decaying rotation, in degrees. Starts and ends at exactly 0 so
-// it can be summed onto whatever rotation an element already has without
-// leaving a residual tilt.
-const WIGGLE_KEYFRAMES = [0, -7, 5, -3, 1.5, 0]
+// A quick decaying rotation, in degrees — kept small so it reads as a
+// nudge, not a shake. Starts and ends at exactly 0 so it can be summed
+// onto whatever rotation an element already has without leaving a
+// residual tilt.
+const WIGGLE_KEYFRAMES = [0, -3.5, 2.5, -1.5, 0.5, 0]
 const WIGGLE_TRANSITION = { duration: 0.45, ease: 'easeOut' } as const
 
 /**

@@ -14,7 +14,7 @@ export default defineConfig({
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
         id: '/solitaire/',
-        name: 'Solitaire',
+        name: 'Solitaire by Dylan Davies',
         short_name: 'Solitaire',
         description: 'A playful, physics-animated Klondike Solitaire that works offline.',
         start_url: '/solitaire/',

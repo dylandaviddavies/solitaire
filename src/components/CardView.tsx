@@ -78,9 +78,10 @@ interface CardViewProps {
 const WIGGLE_STAGGER_S = 0.05
 
 // Viewer distance for the face-up flip. Without a perspective the rotateY
-// is just a flat horizontal squash that reads as a spin; with one the
-// card visibly turns over in depth, front sweeping in from the left.
-const FLIP_PERSPECTIVE_PX = 640
+// is just a flat horizontal squash that reads as a spin. Kept fairly
+// short relative to the card so the turn has obvious depth — the leading
+// half bulges toward the viewer as the card comes over.
+const FLIP_PERSPECTIVE_PX = 380
 
 const REST_SHADOW =
   '0 3px 0 rgba(15,15,20,0.35), 0 8px 14px rgba(15,15,20,0.28)'
@@ -378,7 +379,11 @@ export function CardView({
         * read as a doubled, broken edge. */}
       <motion.div
         className="relative h-full w-full rounded-[14px]"
-        initial={revealOnMount ? { rotateY: 180 } : false}
+        // Start a just-drawn card back-facing and rotated the *negative*
+        // way, so with the parent's perspective it turns over front-first
+        // from the left edge across to the right, rather than revealing
+        // right-to-left.
+        initial={revealOnMount ? { rotateY: -180 } : false}
         animate={{
           rotateY: card.faceUp ? 0 : 180,
           // `followTransform` set means this card is part of a run being
@@ -387,7 +392,9 @@ export function CardView({
           boxShadow: selected || isPressed || followTransform ? LIFT_SHADOW : REST_SHADOW,
         }}
         transition={{
-          rotateY: { duration: 0.7, ease: 'easeInOut' },
+          // Slow, decelerating turn so the 3-D roll-over is legible
+          // instead of snapping through edge-on like a flat spin.
+          rotateY: { duration: 0.85, ease: [0.22, 0.68, 0.24, 1] },
           default: { type: 'spring', stiffness: 380, damping: 26 },
         }}
         // `rotate` (the wiggle) pivots about this element's centre — its

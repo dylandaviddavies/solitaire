@@ -51,12 +51,16 @@ export interface GameSnapshot {
 interface GameEvents {
   change: { movesMade: number }
   won: { movesMade: number; elapsedMs: number }
+  /** A pointer-free move attempt (`autoMove`) had nowhere legal to go —
+   * the UI shakes that card. Drag-and-drop doesn't fire this; it plays its
+   * own snap-back on a false return instead. */
   invalidMove: { cardId: string }
   /** A card was dealt face-up onto the waste pile — the UI uses this to
    * play a flip animation for that specific card. */
   drawn: { cardId: string }
   /** One or more cards were relocated to a different pile (drag-drop,
-   * tap-to-move or auto-play) — the UI plays a "landed" flourish on them. */
+   * tap-to-move or auto-play) — the UI sparkles the head of the run as it
+   * lands. */
   moved: { cardIds: string[] }
   [key: string]: unknown
 }
@@ -208,7 +212,9 @@ export class GameEngine {
   /**
    * Attempts to move `card` (and, if it's the base of a tableau run, every
    * card above it) onto the pile identified by `destinationId`.
-   * Returns true if the move was legal and applied.
+   * Returns true if the move was legal and applied. A false return is
+   * enough for the caller (drag-and-drop) to play its own snap-back —
+   * only the pointer-free paths (`autoMove`) emit `invalidMove`.
    */
   moveCard(card: Card, destinationId: string): boolean {
     const source = this.findPileOf(card)
@@ -221,10 +227,7 @@ export class GameEngine {
       : [card]
 
     if (destination.kind === PileKind.Foundation && run.length !== 1) return false
-    if (!destination.canAccept(run[0])) {
-      this.events.emit('invalidMove', { cardId: card.id })
-      return false
-    }
+    if (!destination.canAccept(run[0])) return false
 
     this.run(new TransferMove(source, destination, run))
     return true

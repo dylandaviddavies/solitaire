@@ -6,6 +6,7 @@ import { useWiggle } from '../hooks/useWiggle'
 import { useDropRegistry } from '../lib/DropRegistryContext'
 import { CARD_HEIGHT, CARD_WIDTH, DRAW_FLIP_EASE, DRAW_FLIP_MS } from '../lib/layout'
 import { useMovedRunPosition } from '../lib/RecentMovesContext'
+import { useRejectedNonce } from '../lib/RejectedMoveContext'
 import { useStageScale } from '../lib/StageScaleContext'
 import { CardBack } from './CardBack'
 import { CardFace } from './CardFace'
@@ -61,21 +62,12 @@ interface CardViewProps {
    * elsewhere: it mirrors that card's position/rotation exactly instead
    * of driving its own, and skips its own layout/press styling. */
   followTransform?: DragTransform
-  /** Set by a parent to wiggle this card as part of a run whose head was
-   * tapped. `nonce` changes on every tap (so a repeat tap replays it);
-   * `order` is the card's place in the run, for the cascade delay. */
-  groupWiggle?: { nonce: number; order: number }
-  /** Whether a plain press should give the usual tactile feedback — the
-   * card lifts under the pointer and the click wiggles it. Default true.
-   * Set false where the click is really a button (the stock: clicking it
-   * draws, and the card immediately flips away to the waste, so lifting
-   * it first just reads as a snap-back). */
+  /** Whether a plain press should lift the card under the pointer. Default
+   * true. Set false where the click is really a button (the stock:
+   * clicking it draws, and the card immediately turns over onto the
+   * waste, so lifting it first just reads as a snap-back). */
   liftOnPress?: boolean
 }
-
-// Seconds of delay added per card down a run, so a group wiggle ripples
-// through the fan instead of every card shaking in lockstep.
-const WIGGLE_STAGGER_S = 0.05
 
 // Viewer distance for the face-up flip. Without a perspective the rotateY
 // is just a flat horizontal squash that reads as a spin. Kept fairly
@@ -124,7 +116,6 @@ export function CardView({
   onPressStart,
   onPressEnd,
   followTransform,
-  groupWiggle,
   liftOnPress = true,
 }: CardViewProps) {
   const registry = useDropRegistry()
@@ -214,37 +205,31 @@ export function CardView({
   const rawTilt = useMotionValue(0)
   const swayRotate = useSpring(rawTilt, { stiffness: 90, damping: 14, mass: 1.1 })
 
-  // A short playful wiggle fired for tap / drop feedback. Applied to the
-  // inner card element (below), not this one, so it pivots about the
-  // card's centre rather than the top-edge pinch point the drag sway
-  // uses.
+  // A short "nope" wiggle, played only when a move is refused. Applied to
+  // the inner card element (below), not this one, so it pivots about the
+  // card's centre rather than the top-edge pinch point the drag sway uses.
   const { angle: wiggleAngle, play: playWiggle } = useWiggle()
 
-  // A card that just landed here from a move gets a one-shot wiggle as it
-  // mounts into its new pile — every card of a moved run, cascading by
-  // `runPosition` (its index in the run, or -1 if it wasn't part of one).
-  // Only the run's head also sparkles, so a long run doesn't set off a
-  // wall of them. The ref stops a later state change from replaying it on
-  // the same instance.
+  // The head of a run that just landed here sparkles as it mounts into its
+  // new pile — success feedback, the counterpart to the wiggle. The ref
+  // stops a later state change from replaying it on the same instance.
   const runPosition = useMovedRunPosition(card.id)
-  const landedPlayed = useRef(false)
+  const sparkledOnMove = useRef(false)
   const [sparkling, setSparkling] = useState(false)
   useEffect(() => {
-    if (runPosition < 0 || landedPlayed.current) return
-    landedPlayed.current = true
-    playWiggle(runPosition * WIGGLE_STAGGER_S)
-    if (runPosition === 0) setSparkling(true)
-  }, [runPosition, playWiggle])
+    if (runPosition !== 0 || sparkledOnMove.current) return
+    sparkledOnMove.current = true
+    setSparkling(true)
+  }, [runPosition])
 
-  // Wiggle triggered by a parent when this card is a follower in a run
-  // whose head was tapped (the head wiggles itself, via onClick below).
-  // Keyed on the tap nonce so it replays on every tap.
-  const groupWiggleNonce = groupWiggle?.nonce
-  const groupWiggleOrder = groupWiggle?.order ?? 0
+  // Shake this card when the engine turns its move down — a drop onto a
+  // pile that can't take it, a tap/double-tap with nowhere legal to go.
+  // Keyed on the rejection nonce so a repeat rejection replays it.
+  const rejectedNonce = useRejectedNonce(card.id)
   useEffect(() => {
-    if (groupWiggleNonce === undefined) return
-    playWiggle(groupWiggleOrder * WIGGLE_STAGGER_S)
-  }, [groupWiggleNonce, groupWiggleOrder, playWiggle])
+    if (rejectedNonce === null) return
+    playWiggle()
+  }, [rejectedNonce, playWiggle])
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (liftOnPress) setIsPressed(true)
@@ -325,9 +310,10 @@ export function CardView({
       if (!moved) {
         // Snap back to the rest position — the pile it came from hasn't
         // changed, so there's nowhere else for it to go. `retarget` eases
-        // it back smoothly instead of teleporting, and a wiggle sells the
-        // little "nope" bounce. (A successful drop instead wiggles on the
-        // card as it mounts into its new pile — see the landed effect.)
+        // it back smoothly instead of teleporting, and the wiggle sells
+        // the "nope". (A drop that lands sparkles instead — see above.)
+        // This is the drag counterpart to the engine's `invalidMove`
+        // wiggle that covers tap/auto-move rejections.
         retarget(rawX, catchUpX, 0, SNAP_BACK)
         retarget(rawY, catchUpY, 0, SNAP_BACK)
         playWiggle()
@@ -390,7 +376,6 @@ export function CardView({
           wasDragged.current = false
           return
         }
-        if (liftOnPress) playWiggle()
         onClickMove(card)
       }}
       onDoubleClick={(event: React.MouseEvent) => {

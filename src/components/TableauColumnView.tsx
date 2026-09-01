@@ -18,13 +18,6 @@ interface DragOrigin {
   transform: DragTransform
 }
 
-/** The run whose head was last tapped, so the rest of the run can wiggle
- * along with it. `nonce` bumps on every tap so a repeat tap replays. */
-interface TapPulse {
-  fromIndex: number
-  nonce: number
-}
-
 export function TableauColumnView({
   pile,
   onDrop,
@@ -36,7 +29,6 @@ export function TableauColumnView({
 }: TableauColumnViewProps) {
   const cards = pile.getCards()
   const [dragOrigin, setDragOrigin] = useState<DragOrigin | null>(null)
-  const [tapPulse, setTapPulse] = useState<TapPulse | null>(null)
 
   const offsets: number[] = []
   let running = 0
@@ -59,9 +51,6 @@ export function TableauColumnView({
         // position, it just mirrors the dragged card's motion values so
         // the whole run visually moves as one unit.
         const isFollower = dragOrigin !== null && index > dragOrigin.index
-        // A tap on a run head wiggles the head (via its own onClick) plus
-        // every card below it in the run, cascading down the fan.
-        const inTappedRun = tapPulse !== null && index > tapPulse.fromIndex
         return (
           <CardView
             key={card.id}
@@ -70,21 +59,13 @@ export function TableauColumnView({
             draggable={pile.canLift(card)}
             style={{ top: offsets[index], left: 0, zIndex: index }}
             onDrop={onDrop}
-            onClickMove={(tappedCard) => {
-              setTapPulse((prev) => ({ fromIndex: index, nonce: (prev?.nonce ?? 0) + 1 }))
-              onClickMove(tappedCard)
-            }}
+            onClickMove={onClickMove}
             onActivate={onActivate}
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
             onPressStart={(transform) => setDragOrigin({ index, transform })}
             onPressEnd={() => setDragOrigin(null)}
             followTransform={isFollower ? dragOrigin!.transform : undefined}
-            groupWiggle={
-              inTappedRun
-                ? { nonce: tapPulse!.nonce, order: index - tapPulse!.fromIndex }
-                : undefined
-            }
           />
         )
       })}

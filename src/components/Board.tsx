@@ -8,6 +8,7 @@ import { BACKGROUND_GRADIENTS } from '../lib/backgrounds'
 import { DropRegistryProvider } from '../lib/DropRegistryContext'
 import { CARD_HEIGHT, CARD_WIDTH, DRAW_FLIP_MS } from '../lib/layout'
 import { RecentMovesContext } from '../lib/RecentMovesContext'
+import { RejectedMoveContext, type RejectedMove } from '../lib/RejectedMoveContext'
 import { FoundationSlotView } from './FoundationSlotView'
 import { ResponsiveStage } from './ResponsiveStage'
 import { StockPileView } from './StockPileView'
@@ -41,9 +42,12 @@ export function Board() {
   const [dealGeneration, setDealGeneration] = useState(0)
   const [winInfo, setWinInfo] = useState<WinInfo | null>(null)
   const [justDrawnId, setJustDrawnId] = useState<string | null>(null)
-  // Cards relocated by the most recent move, in run order — drives their
-  // staggered "landed" wiggle + sparkle via RecentMovesContext.
+  // Cards relocated by the most recent move, in run order — the run head
+  // sparkles as it lands, via RecentMovesContext.
   const [justMovedIds, setJustMovedIds] = useState<readonly string[]>([])
+  // The card whose last move the engine turned down (a tap/auto-move with
+  // nowhere to go). Nonce-bumped so shaking the same card twice replays.
+  const [rejected, setRejected] = useState<RejectedMove | null>(null)
   // Whether a real drag (past the movement threshold) is currently under
   // way — set on drag start, cleared on drop or cancel — purely so the
   // piles that could ever be a destination can show a hint outline. This
@@ -66,8 +70,13 @@ export function Board() {
   const stageWidth = columnLeft(TABLEAU_COLUMNS - 1) + CARD_WIDTH
   const foundationLeft = (index: number) => columnLeft(FOUNDATION_START_COLUMN + index)
 
+  const rejectCard = useCallback((cardId: string) => {
+    setRejected((prev) => ({ cardId, nonce: (prev?.nonce ?? 0) + 1 }))
+  }, [])
+
   useEffect(() => engine.on('won', (payload) => setWinInfo(payload)), [engine])
   useEffect(() => engine.on('moved', ({ cardIds }) => setJustMovedIds(cardIds)), [engine])
+  useEffect(() => engine.on('invalidMove', ({ cardId }) => rejectCard(cardId)), [engine, rejectCard])
 
   // `justDrawnId` marks the one card mid draw-reveal — it drives the
   // stock → waste turn-over and, while set, keeps that card out of the
@@ -121,9 +130,9 @@ export function Board() {
 
   const handleActivate = useCallback(
     (card: Card) => {
-      engine.sendToFoundation(card)
+      if (!engine.sendToFoundation(card)) rejectCard(card.id)
     },
-    [engine],
+    [engine, rejectCard],
   )
 
   const handleDragStart = useCallback(() => {
@@ -157,6 +166,7 @@ export function Board() {
   return (
     <DropRegistryProvider>
       <RecentMovesContext.Provider value={justMovedIds}>
+      <RejectedMoveContext.Provider value={rejected}>
         <div
           className={`flex h-dvh w-full flex-col items-center overflow-hidden bg-gradient-to-b ${BACKGROUND_GRADIENTS[background]}`}
         >
@@ -236,6 +246,7 @@ export function Board() {
           elapsedMs={winInfo?.elapsedMs ?? 0}
           onNewGame={handleNewGame}
         />
+      </RejectedMoveContext.Provider>
       </RecentMovesContext.Provider>
     </DropRegistryProvider>
   )

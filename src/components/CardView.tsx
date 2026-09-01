@@ -103,11 +103,14 @@ type SettleTransition = typeof LOCK_ON | typeof SNAP_BACK
 
 // Glide for a card arriving in a new pile (see the flip-offset effect). A
 // tap/auto-move sends it the full width of the board, so it wants a
-// travelling ease, not the near-instant settle of a stiff spring; a
-// drag-drop hands it over already on the target, so the same curve just
-// eases the last stretch. Soft and near-critically damped — arrives
-// without wobbling on the pile.
+// travelling ease, not the near-instant settle of a stiff spring. Soft
+// and near-critically damped — arrives without wobbling on the pile.
 const ARRIVE_SPRING = { type: 'spring' as const, stiffness: 150, damping: 26, mass: 1.1 }
+// A card released from a drag drops the short distance from the cursor
+// into its slot: quicker than `ARRIVE_SPRING`, and deliberately a little
+// under-damped so it clicks in with a small bounce rather than just
+// coasting to a stop.
+const DROP_SETTLE = { type: 'spring' as const, stiffness: 340, damping: 25, mass: 0.9 }
 
 // The card is always "held" by its top-center, like pinching the top edge
 // between two fingers — not by whichever pixel you happened to click.
@@ -184,13 +187,16 @@ export function CardView({
 
   // Ease that offset to zero, once, on mount. A draw stretches the glide
   // to the face turn-over's slow curve so the card is still crossing the
-  // gap as it flips; every other move uses the quick arrival spring.
+  // gap as it flips; a drag-drop clicks in with `DROP_SETTLE`; every other
+  // move uses the quick arrival spring.
   const stopFlip = useRef<() => void>(() => {})
   useEffect(() => {
     if (!flipOnMount.current) return
     const transition = revealOnMount
       ? { duration: DRAW_FLIP_MS / 1000, ease: DRAW_FLIP_EASE }
-      : ARRIVE_SPRING
+      : flipOnMount.current.dragged
+        ? DROP_SETTLE
+        : ARRIVE_SPRING
     const ax = animate(rawX, 0, transition)
     const ay = animate(rawY, 0, transition)
     stopFlip.current = () => {
@@ -376,7 +382,9 @@ export function CardView({
         zIndex: isPressed || followTransform ? 200 : style?.zIndex,
         cursor: draggable ? (isPressed ? 'grabbing' : 'grab') : 'pointer',
       }}
-      initial={false}
+      // A card that just landed from a drag mounts still lifted (1.07) and
+      // settles to rest scale as it clicks in; everything else mounts flat.
+      initial={flipOnMount.current?.dragged ? { scale: 1.07 } : false}
       animate={{ scale: isPressed || followTransform ? 1.07 : 1 }}
       transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.9 }}
       onPointerDown={handlePointerDown}

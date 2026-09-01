@@ -8,7 +8,7 @@ import { useIsNarrowViewport } from '../hooks/useIsNarrowViewport'
 import { useShortViewport } from '../hooks/useShortViewport'
 import { BACKGROUND_GRADIENTS } from '../lib/backgrounds'
 import { DropRegistryProvider } from '../lib/DropRegistryContext'
-import { FlipOffsetsContext, type FlipOffsets } from '../lib/FlipContext'
+import { FlipOffsetsContext, type FlipOffset, type FlipOffsets } from '../lib/FlipContext'
 import { CARD_HEIGHT, CARD_WIDTH, DRAW_FLIP_MS } from '../lib/layout'
 import { RecentMovesContext } from '../lib/RecentMovesContext'
 import { RejectedMoveContext, type RejectedMove } from '../lib/RejectedMoveContext'
@@ -131,13 +131,15 @@ export function Board() {
       const after = cardPositions()
       const carried = dragOffset.current
       dragOffset.current = null
-      const next = new Map<string, { dx: number; dy: number }>()
+      const next = new Map<string, FlipOffset>()
       after.forEach((to, id) => {
         const from = before.get(id)
         if (!from) return
         const dx = from.x - to.x + (carried?.x ?? 0)
         const dy = from.y - to.y + (carried?.y ?? 0)
-        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) next.set(id, { dx, dy })
+        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+          next.set(id, carried ? { dx, dy, dragged: true } : { dx, dy })
+        }
       })
       setFlipOffsets(next)
     },

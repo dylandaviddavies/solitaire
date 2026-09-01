@@ -28,7 +28,6 @@ interface CardViewProps {
   card: Card
   pileId: string
   draggable: boolean
-  selected: boolean
   /** True for the one card that just landed here face-up from a fresh
    * mount (e.g. a stock draw) — it should visibly flip in rather than
    * just appear, since normal same-pile re-renders already flip smoothly
@@ -36,7 +35,9 @@ interface CardViewProps {
   revealOnMount?: boolean
   style?: React.CSSProperties
   onDrop: (card: Card, destinationPileId: string) => boolean
-  onSelect: (card: Card, pileId: string) => void
+  /** A plain click/tap (no drag): send this card to its best legal
+   * destination. */
+  onClickMove: (card: Card) => void
   onActivate: (card: Card) => void
   /** Optional: omitted for cards that can never be dragged (e.g. the
    * stock's face-down top, or a "peek" card rendered just to fill in the
@@ -113,11 +114,10 @@ export function CardView({
   card,
   pileId,
   draggable,
-  selected,
   revealOnMount,
   style,
   onDrop,
-  onSelect,
+  onClickMove,
   onActivate,
   onDragStart,
   onDragEnd,
@@ -366,7 +366,7 @@ export function CardView({
           return
         }
         if (liftOnPress) playWiggle()
-        onSelect(card, pileId)
+        onClickMove(card)
       }}
       onDoubleClick={(event: React.MouseEvent) => {
         event.stopPropagation()
@@ -388,8 +388,8 @@ export function CardView({
           rotateY: card.faceUp ? 0 : 180,
           // `followTransform` set means this card is part of a run being
           // carried — it lifts with the grabbed card, not just tracks it.
-          y: selected || isPressed || followTransform ? -14 : 0,
-          boxShadow: selected || isPressed || followTransform ? LIFT_SHADOW : REST_SHADOW,
+          y: isPressed || followTransform ? -14 : 0,
+          boxShadow: isPressed || followTransform ? LIFT_SHADOW : REST_SHADOW,
         }}
         transition={{
           // Slow, decelerating turn so the 3-D roll-over is legible

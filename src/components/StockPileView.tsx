@@ -38,11 +38,10 @@ export function StockPileView({ pile, onDraw }: StockPileViewProps) {
             card={under}
             pileId={pile.id}
             draggable={false}
-            selected={false}
             sharedLayout={false}
             style={{ top: 3, left: 2, zIndex: -1 }}
             onDrop={() => false}
-            onSelect={() => {}}
+            onClickMove={() => {}}
             onActivate={() => {}}
           />
         </div>
@@ -60,7 +59,6 @@ export function StockPileView({ pile, onDraw }: StockPileViewProps) {
           card={top}
           pileId={pile.id}
           draggable={false}
-          selected={false}
           // Clicking the stock is a draw, not a card pickup — skip the
           // press lift so the top card flips straight to the waste
           // instead of raising and snapping back first. And keep it out
@@ -70,7 +68,7 @@ export function StockPileView({ pile, onDraw }: StockPileViewProps) {
           sharedLayout={false}
           style={{ top: 0, left: 0, zIndex: 0 }}
           onDrop={() => false}
-          onSelect={onDraw}
+          onClickMove={onDraw}
           onActivate={() => {}}
         />
       )}

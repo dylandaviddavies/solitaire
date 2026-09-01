@@ -17,9 +17,8 @@ interface FoundationSlotViewProps extends PileInteractionProps {
 
 export function FoundationSlotView({
   pile,
-  selected,
   onDrop,
-  onSelect,
+  onClickMove,
   onActivate,
   onDragStart,
   onDragEnd,
@@ -45,9 +44,6 @@ export function FoundationSlotView({
           {SUIT_GLYPH[pile.suit]}
         </div>
       }
-      onClick={() => {
-        if (selected) onDrop(selected.card, pile.id)
-      }}
     >
       {under && (
         <div className="pointer-events-none">
@@ -56,10 +52,9 @@ export function FoundationSlotView({
             card={under}
             pileId={pile.id}
             draggable={false}
-            selected={false}
             style={{ top: 3, left: 2, zIndex: -1 }}
             onDrop={() => false}
-            onSelect={() => {}}
+            onClickMove={() => {}}
             onActivate={() => {}}
           />
         </div>
@@ -74,10 +69,9 @@ export function FoundationSlotView({
           card={top}
           pileId={pile.id}
           draggable={pile.canLift(top)}
-          selected={selected?.card === top}
           style={{ top: 0, left: 0, zIndex: 0 }}
           onDrop={onDrop}
-          onSelect={onSelect}
+          onClickMove={onClickMove}
           onActivate={onActivate}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}

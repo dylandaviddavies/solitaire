@@ -27,9 +27,8 @@ interface TapPulse {
 
 export function TableauColumnView({
   pile,
-  selected,
   onDrop,
-  onSelect,
+  onClickMove,
   onActivate,
   onDragStart,
   onDragEnd,
@@ -53,9 +52,6 @@ export function TableauColumnView({
       minHeight={totalHeight}
       showPlaceholder={pile.isEmpty}
       dropTarget={isDropTarget(pile.id)}
-      onClick={() => {
-        if (selected) onDrop(selected.card, pile.id)
-      }}
     >
       {cards.map((card, index) => {
         // A "follower" is any card stacked below the one actually being
@@ -72,12 +68,11 @@ export function TableauColumnView({
             card={card}
             pileId={pile.id}
             draggable={pile.canLift(card)}
-            selected={selected?.card === card}
             style={{ top: offsets[index], left: 0, zIndex: index }}
             onDrop={onDrop}
-            onSelect={(tappedCard, pileId) => {
+            onClickMove={(tappedCard) => {
               setTapPulse((prev) => ({ fromIndex: index, nonce: (prev?.nonce ?? 0) + 1 }))
-              onSelect(tappedCard, pileId)
+              onClickMove(tappedCard)
             }}
             onActivate={onActivate}
             onDragStart={onDragStart}

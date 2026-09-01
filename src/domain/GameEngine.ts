@@ -231,6 +231,55 @@ export class GameEngine {
   }
 
   /**
+   * Sends `card` — and, if it's the base of a valid tableau run, the whole
+   * run resting on it — to the best legal destination in a single action,
+   * for click/tap-to-move. Priority: a foundation if a lone card fits one,
+   * then a tableau column the run can stack on, then an empty tableau
+   * column (Kings only). Cards already home on a foundation are left alone
+   * (drag them back if you must), and relocating a run that is already the
+   * whole of an empty-based column is treated as a no-op so a King can't
+   * hop pointlessly between empty columns. Returns whether a move was made.
+   */
+  autoMove(card: Card): boolean {
+    const source = this.findPileOf(card)
+    if (!source || source.kind === PileKind.Foundation) return false
+    if (!source.canLift(card)) return false
+
+    const run = source.kind === PileKind.Tableau
+      ? (source as TableauPile).runFrom(card)
+      : [card]
+    if (run.length === 0) return false
+
+    const destination = this.findAutoMoveDestination(source, run)
+    if (!destination) {
+      this.events.emit('invalidMove', { cardId: card.id })
+      return false
+    }
+
+    this.run(new TransferMove(source, destination, run))
+    return true
+  }
+
+  /** Picks the pile `autoMove` should send `run` to, or undefined when no
+   * legal destination is available. See `autoMove` for the priority order. */
+  private findAutoMoveDestination(source: Pile, run: Card[]): Pile | undefined {
+    const head = run[0]
+
+    if (run.length === 1) {
+      const foundation = this.foundations.find((f) => f.canAccept(head))
+      if (foundation) return foundation
+    }
+
+    const columns = this.tableau.filter((column) => column !== source)
+    const stackable = columns.find((column) => !column.isEmpty && column.canAccept(head))
+    if (stackable) return stackable
+
+    const runIsWholeColumn = source.kind === PileKind.Tableau && source.getCards()[0] === head
+    if (runIsWholeColumn) return undefined
+    return columns.find((column) => column.isEmpty && column.canAccept(head))
+  }
+
+  /**
    * Tries to send `card` straight to a foundation it fits on — used for
    * double-click / double-tap "auto-play" convenience.
    */

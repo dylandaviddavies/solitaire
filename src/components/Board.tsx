@@ -7,7 +7,6 @@ import { BACKGROUND_GRADIENTS } from '../lib/backgrounds'
 import { DropRegistryProvider } from '../lib/DropRegistryContext'
 import { CARD_HEIGHT, CARD_WIDTH, COLUMN_GAP } from '../lib/layout'
 import { RecentMovesContext } from '../lib/RecentMovesContext'
-import type { SelectedCard } from '../lib/types'
 import { FoundationSlotView } from './FoundationSlotView'
 import { ResponsiveStage } from './ResponsiveStage'
 import { StockPileView } from './StockPileView'
@@ -40,13 +39,12 @@ interface WinInfo {
 }
 
 /**
- * Top-level game screen. Owns only UI-transient state (the current
- * selection, the win banner, a counter to restart the deal-in animation)
- * — every rule about whether a move is legal lives in `GameEngine`.
+ * Top-level game screen. Owns only UI-transient state (the win banner, a
+ * counter to restart the deal-in animation) — every rule about whether a
+ * move is legal lives in `GameEngine`.
  */
 export function Board() {
   const engine = useGameEngine()
-  const [selected, setSelected] = useState<SelectedCard | null>(null)
   const [dealGeneration, setDealGeneration] = useState(0)
   const [winInfo, setWinInfo] = useState<WinInfo | null>(null)
   const [justDrawnId, setJustDrawnId] = useState<string | null>(null)
@@ -59,8 +57,7 @@ export function Board() {
   // deliberately doesn't distinguish which card is being dragged: the
   // hint is a "here are the kinds of places you can drop a card" map, the
   // same every time, not a computed answer for this specific card (that
-  // would just tell the player where the correct move is). It's also
-  // separate from `selected` (tap-to-move), which has its own lifecycle.
+  // would just tell the player where the correct move is).
   const [isDragging, setIsDragging] = useState(false)
   const background = useBackgroundPreference()
 
@@ -85,24 +82,16 @@ export function Board() {
   }, [engine, dealGeneration])
 
   const handleDrop = useCallback(
-    (card: Card, destinationId: string) => {
-      const moved = engine.moveCard(card, destinationId)
-      if (moved) setSelected(null)
-      return moved
-    },
+    (card: Card, destinationId: string) => engine.moveCard(card, destinationId),
     [engine],
   )
 
-  const handleSelect = useCallback(
-    (card: Card, pileId: string) => {
-      setSelected((current) => {
-        if (current?.card === card) return null
-        if (current) {
-          engine.moveCard(current.card, pileId)
-          return null
-        }
-        return engine.findPile(pileId)?.canLift(card) ? { card, pileId } : current
-      })
+  // A plain click/tap: hand the card to the engine, which sends it (plus
+  // any run resting on it) to its best legal spot — foundation first, then
+  // a tableau column. There's no "selected" middle state any more.
+  const handleClickMove = useCallback(
+    (card: Card) => {
+      engine.autoMove(card)
     },
     [engine],
   )
@@ -110,7 +99,6 @@ export function Board() {
   const handleActivate = useCallback(
     (card: Card) => {
       engine.sendToFoundation(card)
-      setSelected((current) => (current?.card === card ? null : current))
     },
     [engine],
   )
@@ -130,7 +118,6 @@ export function Board() {
 
   const handleNewGame = useCallback(() => {
     engine.startNewGame()
-    setSelected(null)
     setWinInfo(null)
     setDealGeneration((g) => g + 1)
   }, [engine])
@@ -172,9 +159,8 @@ export function Board() {
                   >
                     <FoundationSlotView
                       pile={foundation}
-                      selected={selected}
                       onDrop={handleDrop}
-                      onSelect={handleSelect}
+                      onClickMove={handleClickMove}
                       onActivate={handleActivate}
                       onDragStart={handleDragStart}
                       onDragEnd={handleDragEnd}
@@ -188,9 +174,8 @@ export function Board() {
                     <TableauColumnView
                       key={column.id}
                       pile={column}
-                      selected={selected}
                       onDrop={handleDrop}
-                      onSelect={handleSelect}
+                      onClickMove={handleClickMove}
                       onActivate={handleActivate}
                       onDragStart={handleDragStart}
                       onDragEnd={handleDragEnd}
@@ -206,10 +191,9 @@ export function Board() {
                   <StockPileView pile={engine.stock} onDraw={() => engine.draw()} />
                   <WastePileView
                     pile={engine.waste}
-                    selected={selected}
                     justDrawnId={justDrawnId}
                     onDrop={handleDrop}
-                    onSelect={handleSelect}
+                    onClickMove={handleClickMove}
                     onActivate={handleActivate}
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}

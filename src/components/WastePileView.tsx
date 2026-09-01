@@ -12,10 +12,9 @@ interface WastePileViewProps extends PileInteractionProps {
 
 export function WastePileView({
   pile,
-  selected,
   justDrawnId,
   onDrop,
-  onSelect,
+  onClickMove,
   onActivate,
   onDragStart,
   onDragEnd,
@@ -38,10 +37,9 @@ export function WastePileView({
             card={under}
             pileId={pile.id}
             draggable={false}
-            selected={false}
             style={{ top: 3, left: 2, zIndex: -1 }}
             onDrop={() => false}
-            onSelect={() => {}}
+            onClickMove={() => {}}
             onActivate={() => {}}
           />
         </div>
@@ -56,11 +54,10 @@ export function WastePileView({
           card={top}
           pileId={pile.id}
           draggable={pile.canLift(top)}
-          selected={selected?.card === top}
           revealOnMount={top.id === justDrawnId}
           style={{ top: 0, left: 0, zIndex: 0 }}
           onDrop={onDrop}
-          onSelect={onSelect}
+          onClickMove={onClickMove}
           onActivate={onActivate}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}

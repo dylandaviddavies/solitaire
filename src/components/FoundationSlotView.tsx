@@ -60,10 +60,8 @@ export function FoundationSlotView({
       )}
       {top && (
         <CardView
-          // See StockPileView for why this key matters: without it React
-          // reuses one component instance as the visible top card changes
-          // underneath it, which conflicts with Motion's layoutId-based
-          // transitions.
+          // Keyed by id so a card arriving here gets a fresh mount for its
+          // glide-in (see StockPileView).
           key={top.id}
           card={top}
           pileId={pile.id}

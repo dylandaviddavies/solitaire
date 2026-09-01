@@ -47,23 +47,17 @@ export function StockPileView({ pile, onDraw }: StockPileViewProps) {
       )}
       {top && (
         <CardView
-          // Without this, React reuses the same component instance as
-          // the stock's top card changes underneath it (it changes 28
-          // times during the initial deal alone), which hands Motion's
-          // layoutId a changing value on an already-mounted instance
-          // instead of a clean mount/unmount pair — that can leave the
-          // card's opacity stuck mid-transition. Keying by id forces a
-          // fresh instance per card.
+          // Keyed by id so each card gets its own mount/unmount as the
+          // top of the deck changes (28 times in the opening deal alone) —
+          // a shared instance would rob the arriving card of the fresh
+          // mount its glide-in animation rides on.
           key={top.id}
           card={top}
           pileId={pile.id}
           draggable={false}
           // Clicking the stock is a draw, not a card pickup — skip the
           // press lift so the top card turns straight over onto the waste
-          // instead of raising and snapping back first. It stays in the
-          // shared-layout system (default) so that turn-over travels from
-          // the deck to the waste, and so the initial deal visibly deals
-          // each card out from here into its tableau column.
+          // instead of raising and snapping back first.
           liftOnPress={false}
           style={{ top: 0, left: 0, zIndex: 0 }}
           onDrop={() => false}

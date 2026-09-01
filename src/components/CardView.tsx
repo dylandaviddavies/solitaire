@@ -3,9 +3,26 @@ import { useEffect, useRef, useState } from 'react'
 import type { Card } from '../domain/Card'
 import { useCardBackPreference } from '../hooks/useCardBackPreference'
 import { useWiggle } from '../hooks/useWiggle'
+import {
+  ARRIVE_SPRING,
+  DRAG_ACTIVATE_MS,
+  DRAG_START_THRESHOLD_PX,
+  DRAW_FLIP,
+  DROP_SETTLE,
+  FLIP_ROLL_SPRING,
+  LIFT_SCALE,
+  LIFT_SHADOW,
+  LIFT_TRANSLATE_Y,
+  LOCK_ON,
+  PRESS_SPRING,
+  REST_SHADOW,
+  SNAP_BACK,
+  SWAY_MAX_DEG,
+  SWAY_SPRING,
+} from '../lib/animation'
 import { useDropRegistry } from '../lib/DropRegistryContext'
 import { useFlipOffset } from '../lib/FlipContext'
-import { CARD_HEIGHT, CARD_WIDTH, DRAW_FLIP_EASE, DRAW_FLIP_MS } from '../lib/layout'
+import { CARD_HEIGHT, CARD_WIDTH } from '../lib/layout'
 import { useMovedRunPosition } from '../lib/RecentMovesContext'
 import { useRejectedNonce } from '../lib/RejectedMoveContext'
 import { useStageScale } from '../lib/StageScaleContext'
@@ -76,41 +93,8 @@ interface CardViewProps {
 // half bulges toward the viewer as the card comes over.
 const FLIP_PERSPECTIVE_PX = 380
 
-const REST_SHADOW =
-  '0 3px 0 rgba(15,15,20,0.35), 0 8px 14px rgba(15,15,20,0.28)'
-const LIFT_SHADOW =
-  '0 10px 0 rgba(15,15,20,0.3), 0 22px 30px rgba(15,15,20,0.38)'
-
-const SWAY_MAX_DEG = 16
-// A drag only begins once the pointer has been held for at least
-// `DRAG_ACTIVATE_MS` *and* travelled past `DRAG_START_THRESHOLD_PX`. The
-// hold requirement is what keeps a click that drifts a few pixels (hand
-// tremor, the mouse shifting as the button goes down) from being read as
-// a drag when a tap was meant — release before the delay and it's a tap.
-const DRAG_ACTIVATE_MS = 140
-const DRAG_START_THRESHOLD_PX = 6
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
-
-// Settle transitions for the `catchUp` offset (see below). `LOCK_ON` runs
-// once as a drag begins: a short, finite ease that glides the card from
-// wherever it was grabbed onto the cursor and then — crucially — ends at
-// exactly 0, so from that point on the card is pixel-locked to the
-// pointer with no residual trailing. `SNAP_BACK` returns the card to its
-// rest slot after an invalid drop, where a bit of spring is welcome.
-const LOCK_ON = { type: 'tween' as const, duration: 0.16, ease: 'easeOut' as const }
-const SNAP_BACK = { type: 'spring' as const, stiffness: 480, damping: 34, mass: 0.6 }
 type SettleTransition = typeof LOCK_ON | typeof SNAP_BACK
-
-// Glide for a card arriving in a new pile (see the flip-offset effect). A
-// tap/auto-move sends it the full width of the board, so it wants a
-// travelling ease, not the near-instant settle of a stiff spring. Soft
-// and near-critically damped — arrives without wobbling on the pile.
-const ARRIVE_SPRING = { type: 'spring' as const, stiffness: 150, damping: 26, mass: 1.1 }
-// A card released from a drag drops the short distance from the cursor
-// into its slot: quicker than `ARRIVE_SPRING`, and deliberately a little
-// under-damped so it clicks in with a small bounce rather than just
-// coasting to a stop.
-const DROP_SETTLE = { type: 'spring' as const, stiffness: 340, damping: 25, mass: 0.9 }
 
 // The card is always "held" by its top-center, like pinching the top edge
 // between two fingers — not by whichever pixel you happened to click.
@@ -193,7 +177,7 @@ export function CardView({
   useEffect(() => {
     if (!flipOnMount.current) return
     const transition = revealOnMount
-      ? { duration: DRAW_FLIP_MS / 1000, ease: DRAW_FLIP_EASE }
+      ? DRAW_FLIP
       : flipOnMount.current.dragged
         ? DROP_SETTLE
         : ARRIVE_SPRING
@@ -231,7 +215,7 @@ export function CardView({
   // it — slowly — produces the organic, laggy "swaying" of a card being
   // carried rather than rigidly following the cursor.
   const rawTilt = useMotionValue(0)
-  const swayRotate = useSpring(rawTilt, { stiffness: 90, damping: 14, mass: 1.1 })
+  const swayRotate = useSpring(rawTilt, SWAY_SPRING)
 
   // A short "nope" wiggle, played only when a move is refused. Applied to
   // the inner card element (below), not this one, so it pivots about the
@@ -360,11 +344,10 @@ export function CardView({
 
   return (
     <motion.div
-      // Cross-pile motion is done by hand (the flip-offset effect above),
-      // not Motion's layout projection — the projection fought the
-      // pointer-driven x/y during drags and misjudged the start position
-      // under the board's `scale()` transform, so a moved card would jump
-      // from a wrong spot or not animate at all.
+      // Cross-pile motion is driven by hand from computed board-space
+      // positions (the flip-offset effect above) — not Motion's `layout`
+      // projection, which fought the pointer-driven x/y and misjudged
+      // start positions under the board's `scale()` transform.
       className="absolute left-0 top-0 touch-none"
       style={{
         width: CARD_WIDTH,
@@ -382,11 +365,11 @@ export function CardView({
         zIndex: isPressed || followTransform ? 200 : style?.zIndex,
         cursor: draggable ? (isPressed ? 'grabbing' : 'grab') : 'pointer',
       }}
-      // A card that just landed from a drag mounts still lifted (1.07) and
-      // settles to rest scale as it clicks in; everything else mounts flat.
-      initial={flipOnMount.current?.dragged ? { scale: 1.07 } : false}
-      animate={{ scale: isPressed || followTransform ? 1.07 : 1 }}
-      transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.9 }}
+      // A card that just landed from a drag mounts still lifted and settles
+      // to rest scale as it clicks in; everything else mounts flat.
+      initial={flipOnMount.current?.dragged ? { scale: LIFT_SCALE } : false}
+      animate={{ scale: isPressed || followTransform ? LIFT_SCALE : 1 }}
+      transition={PRESS_SPRING}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}
@@ -419,16 +402,14 @@ export function CardView({
           rotateY: card.faceUp ? 0 : 180,
           // `followTransform` set means this card is part of a run being
           // carried — it lifts with the grabbed card, not just tracks it.
-          y: isPressed || followTransform ? -14 : 0,
+          y: isPressed || followTransform ? LIFT_TRANSLATE_Y : 0,
           boxShadow: isPressed || followTransform ? LIFT_SHADOW : REST_SHADOW,
         }}
         transition={{
-          // Slow, decelerating turn so the 3-D roll-over is legible
-          // instead of snapping through edge-on like a flat spin — same
-          // curve and duration as the stock → waste slide (outer element)
-          // so the two read as one motion.
-          rotateY: { duration: DRAW_FLIP_MS / 1000, ease: DRAW_FLIP_EASE },
-          default: { type: 'spring', stiffness: 380, damping: 26 },
+          // The 3-D roll-over shares the stock → waste slide's slow curve
+          // (outer element) so the turn and the travel read as one motion.
+          rotateY: DRAW_FLIP,
+          default: FLIP_ROLL_SPRING,
         }}
         // `rotate` (the wiggle) pivots about this element's centre — its
         // default transform origin — giving an even side-to-side shake

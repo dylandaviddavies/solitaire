@@ -31,7 +31,7 @@ test.describe('full game', () => {
     // It sends all 52 cards home one at a time; the win overlay follows.
     await expect(page.getByRole('heading', { name: 'You Win!' })).toBeVisible({ timeout: 20_000 })
     await expect(page.getByText(/solved in\s+52\s+moves/i)).toBeVisible()
-    await expect(page.getByRole('button', { name: /play again/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /new deal/i })).toBeVisible()
 
     // The move counter in the toolbar agrees.
     await expect(page.getByText('👣 52')).toBeVisible()
@@ -44,7 +44,7 @@ test.describe('full game', () => {
     await page.getByRole('button', { name: /auto finish/i }).click()
     await expect(page.getByRole('heading', { name: 'You Win!' })).toBeVisible({ timeout: 20_000 })
 
-    await page.getByRole('button', { name: /play again/i }).click()
+    await page.getByRole('button', { name: /new deal/i }).click()
 
     await expect(page.getByRole('heading', { name: 'You Win!' })).toBeHidden()
     // A fresh deal: back to zero moves and no "Auto Finish" on offer.

@@ -1,6 +1,7 @@
 import { Card, Suit } from './Card'
 import { Deck } from './Deck'
 import { EventEmitter } from './EventEmitter'
+import { mulberry32, randomSeed } from './rng'
 import { DrawMove } from './moves/DrawMove'
 import { RecycleMove } from './moves/RecycleMove'
 import { TransferMove } from './moves/TransferMove'
@@ -38,7 +39,10 @@ export interface SerializedCard {
  * awareness of persistence; it has no idea *where* a snapshot is stored —
  * see `lib/gameStorage.ts` for the localStorage adapter. */
 export interface GameSnapshot {
-  version: 1
+  version: 2
+  /** The seed that dealt this game — carried through so a resumed game is
+   * still attributed to the right per-seed high score. */
+  seed: number
   stock: SerializedCard[]
   waste: SerializedCard[]
   foundations: SerializedCard[][]
@@ -88,6 +92,7 @@ export class GameEngine {
   private dealQueue: DealStep[] = []
   private movesMade = 0
   private startedAt = 0
+  private seedValue = 0
   private wonEmitted = false
   /** Bumped on every mutation, including ones that don't change movesMade
    * (dealing a card). This — not movesMade — is what the React adapter
@@ -98,21 +103,24 @@ export class GameEngine {
   private readonly events = new EventEmitter<GameEvents>()
   readonly on = this.events.on.bind(this.events)
 
-  constructor(rng: () => number = Math.random) {
+  constructor(seed: number = randomSeed()) {
     this.stock = new StockPile('stock')
     this.waste = new WastePile('waste')
     this.foundations = SUIT_ORDER.map((suit) => new FoundationPile(`foundation-${suit}`, suit))
     this.tableau = Array.from({ length: TABLEAU_COLUMNS }, (_, i) => new TableauPile(`tableau-${i}`))
-    this.startNewGame(rng)
+    this.startNewGame(seed)
   }
 
   // ---------------------------------------------------------------------
   // Setup / dealing
   // ---------------------------------------------------------------------
 
-  /** Resets all piles and queues a fresh 28-card deal for `dealNext()`. */
-  startNewGame(rng: () => number = Math.random): void {
-    const drawn = Deck.freshShuffled(rng).draw(52)
+  /** Resets all piles and queues a fresh 28-card deal for `dealNext()`.
+   * The deal is derived from `seed`, so the same seed always deals the
+   * same game; omit it for a fresh random deal. */
+  startNewGame(seed: number = randomSeed()): void {
+    this.seedValue = seed
+    const drawn = Deck.freshShuffled(mulberry32(seed)).draw(52)
     this.stock.reset([...drawn].reverse())
     this.waste.reset([])
     this.foundations.forEach((f) => f.reset([]))
@@ -124,6 +132,11 @@ export class GameEngine {
     this.wonEmitted = false
     this.dealQueue = this.buildDealPlan()
     this.emitChange()
+  }
+
+  /** The seed that dealt the current game. */
+  get seed(): number {
+    return this.seedValue
   }
 
   private buildDealPlan(): DealStep[] {
@@ -334,7 +347,8 @@ export class GameEngine {
     const serialize = (cards: readonly Card[]): SerializedCard[] =>
       cards.map((card) => ({ suit: card.suit, rank: card.rank, faceUp: card.faceUp }))
     return {
-      version: 1,
+      version: 2,
+      seed: this.seedValue,
       stock: serialize(this.stock.getCards()),
       waste: serialize(this.waste.getCards()),
       foundations: this.foundations.map((f) => serialize(f.getCards())),
@@ -373,6 +387,7 @@ export class GameEngine {
     this.history = []
     this.movesMade = snapshot.movesMade
     this.startedAt = snapshot.startedAt
+    this.seedValue = snapshot.seed
     // Set directly rather than letting emitChange() discover it, so a
     // restored already-won game doesn't re-fire the 'won' celebration.
     this.wonEmitted = this.isWon()

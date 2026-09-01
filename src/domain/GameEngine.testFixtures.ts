@@ -21,7 +21,8 @@ export const asColumn = (cards: SerializedCard[]): SerializedCard[] =>
 
 export function emptySnapshot(): GameSnapshot {
   return {
-    version: 1,
+    version: 2,
+    seed: 1,
     stock: [],
     waste: [],
     foundations: [[], [], [], []],

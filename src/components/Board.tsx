@@ -11,6 +11,8 @@ import { useShortViewport } from '../hooks/useShortViewport'
 import { DRAW_FLIP_MS } from '../lib/animation'
 import { BACKGROUND_GRADIENTS } from '../lib/backgrounds'
 import { DropRegistryProvider } from '../lib/DropRegistryContext'
+import { highScores } from '../lib/highScores'
+import { useHighScores } from '../hooks/useHighScores'
 import {
   EMPTY_LAST_MOVE,
   LastMoveContext,
@@ -47,6 +49,9 @@ const DEAL_STEP_MS = 55
 interface WinInfo {
   movesMade: number
   elapsedMs: number
+  seed: number
+  newGeneralBest: boolean
+  newSeedBest: boolean
 }
 
 /**
@@ -81,6 +86,8 @@ export function Board() {
   const narrowViewport = useIsNarrowViewport()
   const reducedMotion = useReducedMotion()
   const motionSetting = usePreference(motionPreference)
+  const bests = useHighScores()
+  const seed = engine.seed
 
   // A short viewport gets a tighter top-row gap and a much shorter tableau
   // band, so the whole board scales down less on a landscape phone.
@@ -186,9 +193,21 @@ export function Board() {
 
   useEffect(
     () =>
-      engine.on('won', (payload) => {
-        setWinInfo(payload)
+      engine.on('won', ({ movesMade, elapsedMs }) => {
         playSound('win')
+        const beat = highScores.record({
+          elapsedMs,
+          moves: movesMade,
+          seed: engine.seed,
+          at: Date.now(),
+        })
+        setWinInfo({
+          movesMade,
+          elapsedMs,
+          seed: engine.seed,
+          newGeneralBest: beat.general,
+          newSeedBest: beat.seed,
+        })
       }),
     [engine],
   )
@@ -292,12 +311,15 @@ export function Board() {
   // shows the same hint outline for the whole duration of any drag.
   const isDropTarget = useCallback(() => isDragging, [isDragging])
 
-  const handleNewGame = useCallback(() => {
-    engine.startNewGame()
-    setWinInfo(null)
-    setDealGeneration((g) => g + 1)
-    playSound('shuffle')
-  }, [engine])
+  const handleNewGame = useCallback(
+    (nextSeed?: number) => {
+      engine.startNewGame(nextSeed)
+      setWinInfo(null)
+      setDealGeneration((g) => g + 1)
+      playSound('shuffle')
+    },
+    [engine],
+  )
 
   const handleDraw = useCallback(() => {
     const recycling = engine.stock.isEmpty
@@ -331,6 +353,7 @@ export function Board() {
           <Toolbar
             movesCount={engine.movesCount}
             startedAtMs={engine.startedAtMs}
+            seed={seed}
             won={Boolean(winInfo)}
             canUndo={engine.canUndo}
             canAutoComplete={engine.canAutoComplete()}
@@ -404,7 +427,13 @@ export function Board() {
           visible={Boolean(winInfo)}
           movesCount={winInfo?.movesMade ?? 0}
           elapsedMs={winInfo?.elapsedMs ?? 0}
-          onNewGame={handleNewGame}
+          seed={winInfo?.seed ?? seed}
+          newGeneralBest={winInfo?.newGeneralBest ?? false}
+          newSeedBest={winInfo?.newSeedBest ?? false}
+          bestOverall={bests.general}
+          bestThisSeed={bests.bySeed[String(winInfo?.seed ?? seed)] ?? null}
+          onNewGame={() => handleNewGame()}
+          onRetrySeed={() => handleNewGame(winInfo?.seed ?? seed)}
         />
       </LastMoveContext.Provider>
       </ReducedMotionContext.Provider>

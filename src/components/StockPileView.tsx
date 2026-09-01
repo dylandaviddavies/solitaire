@@ -39,9 +39,6 @@ export function StockPileView({ pile, onDraw }: StockPileViewProps) {
             pileId={pile.id}
             draggable={false}
             style={{ top: 0, left: 0, zIndex: -1 }}
-            onDrop={() => false}
-            onClickMove={() => {}}
-            onActivate={() => {}}
           />
         </div>
       )}
@@ -60,9 +57,7 @@ export function StockPileView({ pile, onDraw }: StockPileViewProps) {
           // instead of raising and snapping back first.
           liftOnPress={false}
           style={{ top: 0, left: 0, zIndex: 0 }}
-          onDrop={() => false}
           onClickMove={onDraw}
-          onActivate={() => {}}
         />
       )}
     </PileSlot>

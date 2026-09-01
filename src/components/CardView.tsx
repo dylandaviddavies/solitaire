@@ -33,11 +33,13 @@ interface CardViewProps {
    * this only adds the face turn and stretches its timing to match. */
   revealOnMount?: boolean
   style?: React.CSSProperties
-  onDrop: (card: Card, destinationPileId: string) => boolean
+  /** The interaction callbacks are all optional — a "peek" card rendered
+   * just to fill a pile in visually wires up none of them. */
+  onDrop?: (card: Card, destinationPileId: string) => boolean
   /** A plain click/tap (no drag): send this card to its best legal
    * destination. */
-  onClickMove: (card: Card) => void
-  onActivate: (card: Card) => void
+  onClickMove?: (card: Card) => void
+  onActivate?: (card: Card) => void
   /** Omitted for cards that can never be dragged (the stock's face-down
    * top, or a "peek" card rendered just to fill a pile in visually). */
   onDragStart?: (card: Card, pileId: string) => void
@@ -107,7 +109,7 @@ export function CardView({
     onPressEnd,
     onDragStart: () => onDragStart?.(card, pileId),
     onDragEnd,
-    onDrop: (destinationId) => onDrop(card, destinationId),
+    onDrop: (destinationId) => onDrop?.(card, destinationId) ?? false,
     onInvalidDrop: playWiggle,
   })
   const { isPressed } = drag
@@ -165,11 +167,11 @@ export function CardView({
       onClick={(event: React.MouseEvent) => {
         event.stopPropagation()
         if (drag.consumeWasDrag()) return
-        onClickMove(card)
+        onClickMove?.(card)
       }}
       onDoubleClick={(event: React.MouseEvent) => {
         event.stopPropagation()
-        onActivate(card)
+        onActivate?.(card)
       }}
     >
       {/* Radius matches the card faces so the animated box-shadow traces

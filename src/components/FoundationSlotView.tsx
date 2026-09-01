@@ -52,9 +52,6 @@ export function FoundationSlotView({
             pileId={pile.id}
             draggable={false}
             style={{ top: 0, left: 0, zIndex: -1 }}
-            onDrop={() => false}
-            onClickMove={() => {}}
-            onActivate={() => {}}
           />
         </div>
       )}

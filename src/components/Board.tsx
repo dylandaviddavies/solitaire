@@ -2,10 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Card } from '../domain/Card'
 import { TABLEAU_COLUMNS } from '../domain/GameEngine'
 import { useBackgroundPreference } from '../hooks/useBackgroundPreference'
+import { useColumnGap } from '../hooks/useColumnGap'
 import { useGameEngine } from '../hooks/useGameEngine'
 import { BACKGROUND_GRADIENTS } from '../lib/backgrounds'
 import { DropRegistryProvider } from '../lib/DropRegistryContext'
-import { CARD_HEIGHT, CARD_WIDTH, COLUMN_GAP } from '../lib/layout'
+import { CARD_HEIGHT, CARD_WIDTH, DRAW_FLIP_MS } from '../lib/layout'
 import { RecentMovesContext } from '../lib/RecentMovesContext'
 import { FoundationSlotView } from './FoundationSlotView'
 import { ResponsiveStage } from './ResponsiveStage'
@@ -16,18 +17,10 @@ import { WastePileView } from './WastePileView'
 import { WinOverlay } from './WinOverlay'
 
 const FOUNDATION_COUNT = 4
-// Every column-like slot (tableau, foundations) sits on the same
-// left-to-right grid, one card-width-plus-gap apart, so a slot at tableau
-// index `i` and a foundation meant to sit "above" it always share an x
-// position exactly — no separately-tuned offset to drift out of sync.
-const COLUMN_STRIDE = CARD_WIDTH + COLUMN_GAP
-const columnLeft = (index: number) => index * COLUMN_STRIDE
-const STAGE_WIDTH = columnLeft(TABLEAU_COLUMNS - 1) + CARD_WIDTH
 // The foundations sit directly above the rightmost `FOUNDATION_COUNT`
 // tableau columns, rather than a separately right-anchored group — that's
 // what makes them land in the same columns as the piles beneath them.
 const FOUNDATION_START_COLUMN = TABLEAU_COLUMNS - FOUNDATION_COUNT
-const foundationLeft = (index: number) => columnLeft(FOUNDATION_START_COLUMN + index)
 const TABLEAU_TOP = CARD_HEIGHT + 32
 const TABLEAU_GROWTH_BUDGET = 460
 const STAGE_HEIGHT = TABLEAU_TOP + TABLEAU_GROWTH_BUDGET
@@ -60,10 +53,40 @@ export function Board() {
   // would just tell the player where the correct move is).
   const [isDragging, setIsDragging] = useState(false)
   const background = useBackgroundPreference()
+  const columnGap = useColumnGap()
+
+  // Every column-like slot (tableau, foundations) sits on the same
+  // left-to-right grid, one card-width-plus-gap apart, so a slot at
+  // tableau index `i` and a foundation meant to sit "above" it always
+  // share an x position exactly — no separately-tuned offset to drift out
+  // of sync. The gap tightens below the `sm` breakpoint, so this geometry
+  // is per-render rather than module scope.
+  const columnStride = CARD_WIDTH + columnGap
+  const columnLeft = (index: number) => index * columnStride
+  const stageWidth = columnLeft(TABLEAU_COLUMNS - 1) + CARD_WIDTH
+  const foundationLeft = (index: number) => columnLeft(FOUNDATION_START_COLUMN + index)
 
   useEffect(() => engine.on('won', (payload) => setWinInfo(payload)), [engine])
-  useEffect(() => engine.on('drawn', ({ cardId }) => setJustDrawnId(cardId)), [engine])
   useEffect(() => engine.on('moved', ({ cardIds }) => setJustMovedIds(cardIds)), [engine])
+
+  // `justDrawnId` marks the one card mid draw-reveal — it drives the
+  // stock → waste turn-over and, while set, keeps that card out of the
+  // shared-layout system so the two don't fight. Clear it once the flip
+  // has run so the card animates normally on its next move.
+  useEffect(() => {
+    let timer = 0
+    const off = engine.on('drawn', ({ cardId }) => {
+      setJustDrawnId(cardId)
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        setJustDrawnId((current) => (current === cardId ? null : current))
+      }, DRAW_FLIP_MS + 50)
+    })
+    return () => {
+      window.clearTimeout(timer)
+      off()
+    }
+  }, [engine])
 
   // Drives the cascading deal-in animation: pop one card off the queue at
   // a time so each lands with its own spring via the card's layoutId.
@@ -149,8 +172,8 @@ export function Board() {
           />
 
           <div className="flex min-h-0 w-full flex-1">
-            <ResponsiveStage baseWidth={STAGE_WIDTH} baseHeight={STAGE_HEIGHT}>
-              <div className="relative" style={{ width: STAGE_WIDTH, height: STAGE_HEIGHT }}>
+            <ResponsiveStage baseWidth={stageWidth} baseHeight={STAGE_HEIGHT}>
+              <div className="relative" style={{ width: stageWidth, height: STAGE_HEIGHT }}>
                 {engine.foundations.map((foundation, index) => (
                   <div
                     key={foundation.id}
@@ -169,7 +192,7 @@ export function Board() {
                   </div>
                 ))}
 
-                <div className="absolute left-0 flex" style={{ top: TABLEAU_TOP, gap: COLUMN_GAP }}>
+                <div className="absolute left-0 flex" style={{ top: TABLEAU_TOP, gap: columnGap }}>
                   {engine.tableau.map((column) => (
                     <TableauColumnView
                       key={column.id}
@@ -187,7 +210,7 @@ export function Board() {
                 {/* Stock + waste in the top-left corner — the classic
                     Klondike spot, with the foundations filling the
                     columns to their right. */}
-                <div className="absolute left-0 top-0 flex" style={{ gap: COLUMN_GAP }}>
+                <div className="absolute left-0 top-0 flex" style={{ gap: columnGap }}>
                   <StockPileView pile={engine.stock} onDraw={() => engine.draw()} />
                   <WastePileView
                     pile={engine.waste}

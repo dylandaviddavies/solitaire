@@ -1,5 +1,6 @@
 import { motion } from 'motion/react'
-import { DROP_ZONE_HINT_INSET } from '../lib/layout'
+import { useColumnGap } from '../hooks/useColumnGap'
+import { DROP_ZONE_HINT_INSET_RATIO } from '../lib/layout'
 import { DASHED_PILE_OUTLINE } from './pileStyles'
 
 // Fades + scales in when a drag begins and back out when it ends, rather
@@ -14,15 +15,16 @@ const EXIT_TRANSITION = { duration: 0.22, ease: 'easeIn' } as const
 /**
  * Neutral dashed outline drawn over any pile that could ever be a drop
  * destination while a card is dragged. Presentational only — `PileSlot`
- * owns the decision of whether to render it. Sits `DROP_ZONE_HINT_INSET`
- * outside the pile so neighbouring hints stay evenly spaced instead of
- * meeting edge-to-edge.
+ * owns the decision of whether to render it. Floats a third of the
+ * current column gap outside the pile so neighbouring hints stay evenly
+ * spaced instead of meeting edge-to-edge.
  */
 export function DropZoneHint() {
+  const inset = useColumnGap() * DROP_ZONE_HINT_INSET_RATIO
   return (
     <motion.div
       className={`pointer-events-none absolute z-20 border-slate-300/70 ${DASHED_PILE_OUTLINE}`}
-      style={{ inset: -DROP_ZONE_HINT_INSET }}
+      style={{ inset: -inset }}
       initial={HIDDEN}
       animate={VISIBLE}
       exit={{ ...HIDDEN, transition: EXIT_TRANSITION }}

@@ -4,7 +4,7 @@ import type { Card } from '../domain/Card'
 import { useCardBackPreference } from '../hooks/useCardBackPreference'
 import { useWiggle } from '../hooks/useWiggle'
 import { useDropRegistry } from '../lib/DropRegistryContext'
-import { CARD_HEIGHT, CARD_WIDTH } from '../lib/layout'
+import { CARD_HEIGHT, CARD_WIDTH, DRAW_FLIP_EASE, DRAW_FLIP_MS } from '../lib/layout'
 import { useMovedRunPosition } from '../lib/RecentMovesContext'
 import { useStageScale } from '../lib/StageScaleContext'
 import { CardBack } from './CardBack'
@@ -29,10 +29,15 @@ interface CardViewProps {
   pileId: string
   draggable: boolean
   /** True for the one card that just landed here face-up from a fresh
-   * mount (e.g. a stock draw) — it should visibly flip in rather than
-   * just appear, since normal same-pile re-renders already flip smoothly
-   * on their own. */
+   * mount (a stock draw) — it turns over as it arrives rather than just
+   * appearing. Paired with `revealFromX` for the slide across from the
+   * stock; the flip itself runs regardless. */
   revealOnMount?: boolean
+  /** How far to the left (negative) the just-drawn card should start from,
+   * i.e. the stock's x relative to the waste, so the turn-over travels the
+   * gap between the two piles instead of happening in place. Only read
+   * when `revealOnMount` is set. */
+  revealFromX?: number
   style?: React.CSSProperties
   onDrop: (card: Card, destinationPileId: string) => boolean
   /** A plain click/tap (no drag): send this card to its best legal
@@ -109,6 +114,7 @@ export function CardView({
   pileId,
   draggable,
   revealOnMount,
+  revealFromX,
   style,
   onDrop,
   onClickMove,
@@ -154,12 +160,34 @@ export function CardView({
   // (snapping back to rest), and animated down to 0 by `retarget` below.
   // Splitting these means the settle-in/settle-back transitions can still
   // ease smoothly without adding any per-frame lag to live tracking.
-  const rawX = useMotionValue(0)
+  // A just-drawn card starts shifted back over the stock (revealFromX) and
+  // slides home to 0 as it turns over — see the mount effect below. Every
+  // other card starts at rest.
+  const rawX = useMotionValue(revealOnMount ? (revealFromX ?? 0) : 0)
   const rawY = useMotionValue(0)
   const catchUpX = useMotionValue(0)
   const catchUpY = useMotionValue(0)
   const x = useTransform([rawX, catchUpX], (latest) => (latest[0] as number) + (latest[1] as number))
   const y = useTransform([rawY, catchUpY], (latest) => (latest[0] as number) + (latest[1] as number))
+
+  // The stock → waste slide. Runs once, on the mount of the freshly-drawn
+  // card: ease `rawX` from over-the-stock back to rest on exactly the same
+  // curve and duration as the face turn-over (the inner element, below),
+  // so the card is still crossing the gap while it flips. `layout`/
+  // `layoutId` are suppressed for this card meanwhile (see the outer
+  // element) so Motion's own projection doesn't also fire and double it.
+  const revealRef = useRef<ReturnType<typeof animate> | null>(null)
+  useEffect(() => {
+    if (!revealOnMount) return
+    // `revealFromX` was already loaded into rawX's initial value; this just
+    // eases it home. A card is only ever freshly-drawn once, so this runs
+    // a single time per mounted instance.
+    revealRef.current = animate(rawX, 0, {
+      duration: DRAW_FLIP_MS / 1000,
+      ease: DRAW_FLIP_EASE,
+    })
+    return () => revealRef.current?.stop()
+  }, [revealOnMount, rawX])
 
   /**
    * Jumps `raw` straight to `newValue` — so every tracking update after
@@ -220,6 +248,8 @@ export function CardView({
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (liftOnPress) setIsPressed(true)
+    // Grabbing a card mid-draw-reveal hands control to the pointer.
+    revealRef.current?.stop()
     // Capture the pointer unconditionally, even for a non-draggable card
     // (e.g. the stock, which is clickable but never dragged). Without
     // this, the slightest pointer drift during a tap can carry the
@@ -317,8 +347,10 @@ export function CardView({
       // transform, which visibly distorts the card's scale mid-drag. Only
       // enabling it when the card isn't currently pressed keeps the FLIP
       // animation for ordinary moves while leaving drags entirely to our
-      // own math.
-      layout={!isPressed && !followTransform}
+      // own math. It's also off during a draw reveal — that card drives
+      // its own stock → waste slide (`rawX`, above), and Motion's
+      // projection running as well would fight it and overshoot.
+      layout={!isPressed && !followTransform && !revealOnMount}
       // Scopes that layout animation to "this card actually changed
       // pile" rather than "something, somewhere in the shared layoutId
       // group, re-rendered". Without this, dropping the top card of a
@@ -327,7 +359,7 @@ export function CardView({
       // otherwise re-measures every layout-enabled sibling on every
       // render and treats any of them as needing a corrective transition.
       layoutDependency={pileId}
-      layoutId={card.id}
+      layoutId={revealOnMount ? undefined : card.id}
       className="absolute left-0 top-0 touch-none"
       style={{
         width: CARD_WIDTH,
@@ -386,8 +418,10 @@ export function CardView({
         }}
         transition={{
           // Slow, decelerating turn so the 3-D roll-over is legible
-          // instead of snapping through edge-on like a flat spin.
-          rotateY: { duration: 0.85, ease: [0.22, 0.68, 0.24, 1] },
+          // instead of snapping through edge-on like a flat spin — same
+          // curve and duration as the stock → waste slide (outer element)
+          // so the two read as one motion.
+          rotateY: { duration: DRAW_FLIP_MS / 1000, ease: DRAW_FLIP_EASE },
           default: { type: 'spring', stiffness: 380, damping: 26 },
         }}
         // `rotate` (the wiggle) pivots about this element's centre — its

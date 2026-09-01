@@ -1,4 +1,6 @@
 import type { WastePile } from '../domain/piles/WastePile'
+import { useColumnGap } from '../hooks/useColumnGap'
+import { CARD_WIDTH } from '../lib/layout'
 import type { PileInteractionProps } from '../lib/types'
 import { CardView } from './CardView'
 import { PileSlot } from './PileSlot'
@@ -21,6 +23,10 @@ export function WastePileView({
 }: WastePileViewProps) {
   const cards = pile.getCards()
   const top = cards[cards.length - 1]
+  // The stock sits one card-width-plus-gap to the left of the waste, so a
+  // just-drawn card starts life shifted back by that much and slides home
+  // as it turns over (see CardView's reveal).
+  const drawTravelX = -(CARD_WIDTH + useColumnGap())
   // The card just underneath the top one, if any — kept mounted (it's
   // keyed by id, so it's the very same instance that used to be the top
   // card), squarely behind the top card, so drawing or dragging the top
@@ -55,6 +61,7 @@ export function WastePileView({
           pileId={pile.id}
           draggable={pile.canLift(top)}
           revealOnMount={top.id === justDrawnId}
+          revealFromX={drawTravelX}
           style={{ top: 0, left: 0, zIndex: 0 }}
           onDrop={onDrop}
           onClickMove={onClickMove}

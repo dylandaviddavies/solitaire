@@ -50,7 +50,7 @@ export const SNAP_BACK = { type: 'spring', stiffness: 520, damping: 34, mass: 0.
 /** Runs once as a drag begins: a short, finite ease that glides the card
  * from wherever it was grabbed onto the cursor and ends at exactly 0, so
  * tracking is pixel-tight from then on. */
-export const LOCK_ON = { type: 'tween', duration: 0.13, ease: 'easeOut' } as const
+export const LOCK_ON = { type: 'tween', duration: 0.1, ease: 'easeOut' } as const
 
 // --- The lift under the pointer ---------------------------------------------
 /** Scale + shadow of a pressed/carried card, and the spring the outer
@@ -87,8 +87,11 @@ export const WIGGLE_KEYFRAMES = [0, -3.5, 2.5, -1.5, 0.5, 0]
 export const WIGGLE_TRANSITION = { duration: 0.45, ease: 'easeOut' } as const
 
 // --- Drag activation ----------------------------------------------------
-/** A drag only begins once the pointer has been held for `DRAG_ACTIVATE_MS`
- * *and* travelled past `DRAG_START_THRESHOLD_PX` — the hold keeps a click
- * that drifts a few pixels from being read as a drag. */
-export const DRAG_ACTIVATE_MS = 140
-export const DRAG_START_THRESHOLD_PX = 6
+/** A drag begins the instant the pointer makes a decisive pull past
+ * `DRAG_COMMIT_PX`, or — for a gentler movement — once it has been held
+ * `DRAG_ACTIVATE_MS` *and* travelled past `DRAG_START_THRESHOLD_PX`. The
+ * short hold still keeps a tap that drifts a few pixels from being read as
+ * a drag, but a deliberate grab never has to wait for it. */
+export const DRAG_ACTIVATE_MS = 80
+export const DRAG_START_THRESHOLD_PX = 5
+export const DRAG_COMMIT_PX = 12

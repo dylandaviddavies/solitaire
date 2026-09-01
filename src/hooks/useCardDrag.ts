@@ -9,6 +9,7 @@ import {
 } from 'motion/react'
 import {
   DRAG_ACTIVATE_MS,
+  DRAG_COMMIT_PX,
   DRAG_START_THRESHOLD_PX,
   LOCK_ON,
   SNAP_BACK,
@@ -170,12 +171,17 @@ export function useCardDrag({
 
     let justStarted = false
     if (!isDragging.current) {
-      if (performance.now() - pressedAt.current < DRAG_ACTIVATE_MS) return
       const moved = Math.hypot(
         event.clientX - startPoint.current.x,
         event.clientY - startPoint.current.y,
       )
-      if (moved < DRAG_START_THRESHOLD_PX) return
+      // A decisive pull starts the drag immediately; a gentler drift has
+      // to clear both the short hold and the small movement threshold, so
+      // a tap that wobbles a few pixels isn't mistaken for a drag.
+      if (moved < DRAG_COMMIT_PX) {
+        if (performance.now() - pressedAt.current < DRAG_ACTIVATE_MS) return
+        if (moved < DRAG_START_THRESHOLD_PX) return
+      }
       isDragging.current = true
       wasDragged.current = true
       justStarted = true

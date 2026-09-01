@@ -309,7 +309,7 @@ export function Board() {
                     Klondike spot, with the foundations filling the
                     columns to their right. */}
                 <div className="absolute left-0 top-0 flex" style={{ gap: columnGap }}>
-                  <StockPileView pile={engine.stock} onDraw={() => engine.draw()} />
+                  <StockPileView pile={engine.stock} onDraw={() => runMutation(() => engine.draw())} />
                   <WastePileView
                     pile={engine.waste}
                     justDrawnId={justDrawnId}

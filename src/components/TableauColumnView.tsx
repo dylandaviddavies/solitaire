@@ -1,11 +1,7 @@
 import { useState } from 'react'
 import type { TableauPile } from '../domain/piles/TableauPile'
-import {
-  CARD_HEIGHT,
-  TABLEAU_OFFSET_FACE_DOWN,
-  TABLEAU_OFFSET_FACE_UP,
-  TABLEAU_OFFSET_FACE_UP_MIN,
-} from '../lib/layout'
+import { CARD_HEIGHT } from '../lib/layout'
+import { tableauOffsets } from '../lib/tableauLayout'
 import type { PileInteractionProps } from '../lib/types'
 import { CardView, type DragTransform } from './CardView'
 import { PileSlot } from './PileSlot'
@@ -13,29 +9,10 @@ import { PileSlot } from './PileSlot'
 interface TableauColumnViewProps extends PileInteractionProps {
   pile: TableauPile
   /** Vertical space this column may occupy. When the run laid out at the
-   * natural step would be taller, the step is squeezed to fit — face-up
-   * first (its overlap is redundant), face-down only if that's still not
-   * enough — so a long run stays fully on-screen instead of being clipped
-   * off the bottom of the board. */
+   * natural step would be taller, `tableauOffsets` squeezes the step to
+   * fit so a long run stays fully on-screen instead of being clipped off
+   * the bottom of the board. */
   maxHeight: number
-}
-
-/** The vertical step between each pair of stacked cards, after any squeeze
- * needed to keep `cardCount` cards inside `maxHeight`. */
-function fanSteps(faceDownBelow: number, faceUpBelow: number, maxHeight: number) {
-  let faceDown = TABLEAU_OFFSET_FACE_DOWN
-  let faceUp = TABLEAU_OFFSET_FACE_UP
-  const room = maxHeight - CARD_HEIGHT // the last card carries no step
-  const natural = faceDownBelow * faceDown + faceUpBelow * faceUp
-  if (natural <= room) return { faceDown, faceUp }
-
-  faceUp = faceUpBelow > 0
-    ? Math.max(TABLEAU_OFFSET_FACE_UP_MIN, (room - faceDownBelow * faceDown) / faceUpBelow)
-    : faceUp
-  if (faceDownBelow > 0 && faceDownBelow * faceDown + faceUpBelow * faceUp > room) {
-    faceDown = Math.max(2, (room - faceUpBelow * faceUp) / faceDownBelow)
-  }
-  return { faceDown, faceUp }
 }
 
 /** Which card in this column is currently the base of a drag, and its live
@@ -60,20 +37,10 @@ export function TableauColumnView({
   const cards = pile.getCards()
   const [dragOrigin, setDragOrigin] = useState<DragOrigin | null>(null)
 
-  // Only the cards with something stacked on them contribute a step.
-  const below = cards.slice(0, -1)
-  const { faceDown, faceUp } = fanSteps(
-    below.filter((c) => !c.faceUp).length,
-    below.filter((c) => c.faceUp).length,
+  const offsets = tableauOffsets(
+    cards.map((card) => card.faceUp),
     maxHeight,
   )
-
-  const offsets: number[] = []
-  let running = 0
-  for (const card of cards) {
-    offsets.push(running)
-    running += card.faceUp ? faceUp : faceDown
-  }
   const lastTop = offsets[offsets.length - 1] ?? 0
   const totalHeight = Math.max(CARD_HEIGHT, lastTop + CARD_HEIGHT)
 

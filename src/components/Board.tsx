@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Card } from '../domain/Card'
 import { TABLEAU_COLUMNS } from '../domain/GameEngine'
 import { useBackgroundPreference } from '../hooks/useBackgroundPreference'
@@ -8,9 +8,11 @@ import { useIsNarrowViewport } from '../hooks/useIsNarrowViewport'
 import { useShortViewport } from '../hooks/useShortViewport'
 import { BACKGROUND_GRADIENTS } from '../lib/backgrounds'
 import { DropRegistryProvider } from '../lib/DropRegistryContext'
+import { FlipOffsetsContext, type FlipOffsets } from '../lib/FlipContext'
 import { CARD_HEIGHT, CARD_WIDTH, DRAW_FLIP_MS } from '../lib/layout'
 import { RecentMovesContext } from '../lib/RecentMovesContext'
 import { RejectedMoveContext, type RejectedMove } from '../lib/RejectedMoveContext'
+import { tableauOffsets } from '../lib/tableauLayout'
 import { FoundationSlotView } from './FoundationSlotView'
 import { ResponsiveStage } from './ResponsiveStage'
 import { StockPileView } from './StockPileView'
@@ -53,6 +55,13 @@ export function Board() {
   // The card whose last move the engine turned down (a tap/auto-move with
   // nowhere to go). Nonce-bumped so shaking the same card twice replays.
   const [rejected, setRejected] = useState<RejectedMove | null>(null)
+  // Board-space entry vectors for the cards that moved in the last
+  // mutation — each freshly-mounted CardView glides in from its own.
+  const [flipOffsets, setFlipOffsets] = useState<FlipOffsets>(new Map())
+  // Where a dragged card sits relative to its slot at the moment of drop,
+  // stashed by `handleDragEnd` so `runMutation` can start that card's
+  // glide home from the cursor rather than from its old slot.
+  const dragOffset = useRef<{ x: number; y: number } | null>(null)
   // Whether a real drag (past the movement threshold) is currently under
   // way — set on drag start, cleared on drop or cancel — purely so the
   // piles that could ever be a destination can show a hint outline. This
@@ -87,6 +96,54 @@ export function Board() {
     setRejected((prev) => ({ cardId, nonce: (prev?.nonce ?? 0) + 1 }))
   }, [])
 
+  // The resting board-space (x, y) of every card, computed straight from
+  // the same geometry the piles render with — no DOM measuring, so it's
+  // immune to the stage's `scale()` transform. `runMutation` diffs this
+  // before and after a mutation to know how far each moved card should
+  // glide, and from where.
+  const cardPositions = useCallback((): Map<string, { x: number; y: number }> => {
+    const stride = CARD_WIDTH + columnGap
+    const colX = (i: number) => i * stride
+    const positions = new Map<string, { x: number; y: number }>()
+    for (const c of engine.stock.getCards()) positions.set(c.id, { x: 0, y: 0 })
+    for (const c of engine.waste.getCards()) positions.set(c.id, { x: stride, y: 0 })
+    engine.foundations.forEach((f, i) => {
+      for (const c of f.getCards()) positions.set(c.id, { x: colX(FOUNDATION_START_COLUMN + i), y: 0 })
+    })
+    engine.tableau.forEach((column, ci) => {
+      const cards = column.getCards()
+      const offsets = tableauOffsets(
+        cards.map((c) => c.faceUp),
+        tableauFanHeight,
+      )
+      cards.forEach((c, idx) => positions.set(c.id, { x: colX(ci), y: tableauTop + offsets[idx] }))
+    })
+    return positions
+  }, [engine, columnGap, tableauTop, tableauFanHeight])
+
+  // Runs an engine mutation and captures how every card that moved should
+  // animate into place: `from - to` in board space, plus the drop cursor
+  // offset for a card that was being dragged.
+  const runMutation = useCallback(
+    (apply: () => void) => {
+      const before = cardPositions()
+      apply()
+      const after = cardPositions()
+      const carried = dragOffset.current
+      dragOffset.current = null
+      const next = new Map<string, { dx: number; dy: number }>()
+      after.forEach((to, id) => {
+        const from = before.get(id)
+        if (!from) return
+        const dx = from.x - to.x + (carried?.x ?? 0)
+        const dy = from.y - to.y + (carried?.y ?? 0)
+        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) next.set(id, { dx, dy })
+      })
+      setFlipOffsets(next)
+    },
+    [cardPositions],
+  )
+
   useEffect(() => engine.on('won', (payload) => setWinInfo(payload)), [engine])
   useEffect(() => engine.on('moved', ({ cardIds }) => setJustMovedIds(cardIds)), [engine])
   useEffect(() => engine.on('invalidMove', ({ cardId }) => rejectCard(cardId)), [engine, rejectCard])
@@ -111,54 +168,60 @@ export function Board() {
   }, [engine])
 
   // Drives the cascading deal-in animation: pop one card off the queue at
-  // a time so each lands with its own spring via the card's layoutId.
+  // a time so each glides in from the stock via the flip-offset system.
   useEffect(() => {
     let cancelled = false
     const step = () => {
       if (cancelled) return
-      if (engine.dealNext()) {
-        window.setTimeout(step, DEAL_STEP_MS)
-      }
+      let dealtOne = false
+      runMutation(() => {
+        dealtOne = engine.dealNext()
+      })
+      if (dealtOne) window.setTimeout(step, DEAL_STEP_MS)
     }
     step()
     return () => {
       cancelled = true
     }
-  }, [engine, dealGeneration])
+  }, [engine, dealGeneration, runMutation])
 
   const handleDrop = useCallback(
-    (card: Card, destinationId: string) => engine.moveCard(card, destinationId),
-    [engine],
+    (card: Card, destinationId: string) => {
+      let moved = false
+      runMutation(() => {
+        moved = engine.moveCard(card, destinationId)
+      })
+      return moved
+    },
+    [engine, runMutation],
   )
 
   // A plain click/tap: hand the card to the engine, which sends it (plus
   // any run resting on it) to its best legal spot — foundation first, then
   // a tableau column. There's no "selected" middle state any more.
-  //
-  // Deferred a frame so the pointer-up render that re-enables Motion
-  // `layout` on the tapped card (it's suppressed while pressed) commits
-  // first — Motion then has the card's resting position registered and can
-  // glide it to the destination via `layoutId` instead of snapping.
   const handleClickMove = useCallback(
     (card: Card) => {
-      requestAnimationFrame(() => engine.autoMove(card))
+      runMutation(() => engine.autoMove(card))
     },
-    [engine],
+    [engine, runMutation],
   )
 
   const handleActivate = useCallback(
     (card: Card) => {
-      if (!engine.sendToFoundation(card)) rejectCard(card.id)
+      runMutation(() => {
+        if (!engine.sendToFoundation(card)) rejectCard(card.id)
+      })
     },
-    [engine, rejectCard],
+    [engine, runMutation, rejectCard],
   )
 
   const handleDragStart = useCallback(() => {
     setIsDragging(true)
   }, [])
 
-  const handleDragEnd = useCallback(() => {
+  const handleDragEnd = useCallback((offset: { x: number; y: number } | null) => {
     setIsDragging(false)
+    dragOffset.current = offset
   }, [])
 
   // Every pile that ever calls this (foundations and tableau columns —
@@ -174,17 +237,20 @@ export function Board() {
 
   const handleAutoComplete = useCallback(() => {
     const tick = () => {
-      if (engine.autoCompleteStep()) {
-        window.setTimeout(tick, 90)
-      }
+      let stepped = false
+      runMutation(() => {
+        stepped = engine.autoCompleteStep()
+      })
+      if (stepped) window.setTimeout(tick, 90)
     }
     tick()
-  }, [engine])
+  }, [engine, runMutation])
 
   return (
     <DropRegistryProvider>
       <RecentMovesContext.Provider value={justMovedIds}>
       <RejectedMoveContext.Provider value={rejected}>
+      <FlipOffsetsContext.Provider value={flipOffsets}>
         <div
           className={`flex h-dvh w-full flex-col items-center overflow-hidden bg-gradient-to-b ${BACKGROUND_GRADIENTS[background]}`}
         >
@@ -196,7 +262,7 @@ export function Board() {
             canAutoComplete={engine.canAutoComplete()}
             dense={shortViewport || narrowViewport}
             onNewGame={handleNewGame}
-            onUndo={() => engine.undo()}
+            onUndo={() => runMutation(() => engine.undo())}
             onAutoComplete={handleAutoComplete}
           />
 
@@ -266,6 +332,7 @@ export function Board() {
           elapsedMs={winInfo?.elapsedMs ?? 0}
           onNewGame={handleNewGame}
         />
+      </FlipOffsetsContext.Provider>
       </RejectedMoveContext.Provider>
       </RecentMovesContext.Provider>
     </DropRegistryProvider>

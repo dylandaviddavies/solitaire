@@ -4,6 +4,7 @@ import type { Card } from '../domain/Card'
 import { useCardBackPreference } from '../hooks/useCardBackPreference'
 import { useWiggle } from '../hooks/useWiggle'
 import { useDropRegistry } from '../lib/DropRegistryContext'
+import { useFlipOffset } from '../lib/FlipContext'
 import { CARD_HEIGHT, CARD_WIDTH, DRAW_FLIP_EASE, DRAW_FLIP_MS } from '../lib/layout'
 import { useMovedRunPosition } from '../lib/RecentMovesContext'
 import { useRejectedNonce } from '../lib/RejectedMoveContext'
@@ -30,15 +31,11 @@ interface CardViewProps {
   pileId: string
   draggable: boolean
   /** True for the one card that just landed here face-up from a fresh
-   * mount (a stock draw) — it turns over as it arrives rather than just
-   * appearing. Paired with `revealFromX` for the slide across from the
-   * stock; the flip itself runs regardless. */
+   * mount (a stock draw) — it turns over as it arrives. The slide across
+   * from the stock comes from the shared flip-offset system like any
+   * other move; this only adds the face turn and stretches its timing to
+   * match. */
   revealOnMount?: boolean
-  /** How far to the left (negative) the just-drawn card should start from,
-   * i.e. the stock's x relative to the waste, so the turn-over travels the
-   * gap between the two piles instead of happening in place. Only read
-   * when `revealOnMount` is set. */
-  revealFromX?: number
   style?: React.CSSProperties
   onDrop: (card: Card, destinationPileId: string) => boolean
   /** A plain click/tap (no drag): send this card to its best legal
@@ -49,7 +46,11 @@ interface CardViewProps {
    * stock's face-down top, or a "peek" card rendered just to fill in the
    * pile visually — see WastePileView/FoundationSlotView/StockPileView). */
   onDragStart?: (card: Card, pileId: string) => void
-  onDragEnd?: () => void
+  /** Drag released. `offset` is where the card visually sits relative to
+   * its slot, in board space — passed on a landed drop so the glide home
+   * can start from the cursor, and `null` on an invalid drop (nothing to
+   * carry over). */
+  onDragEnd?: (offset: { x: number; y: number } | null) => void
   /** Fires the instant this card is pressed (before any movement),
    * handing up its live position/rotation motion values so a parent
    * (e.g. TableauColumnView) can hook the rest of the run onto them right
@@ -100,6 +101,14 @@ const LOCK_ON = { type: 'tween' as const, duration: 0.16, ease: 'easeOut' as con
 const SNAP_BACK = { type: 'spring' as const, stiffness: 480, damping: 34, mass: 0.6 }
 type SettleTransition = typeof LOCK_ON | typeof SNAP_BACK
 
+// Glide for a card arriving in a new pile (see the flip-offset effect). A
+// tap/auto-move sends it the full width of the board, so it wants a
+// travelling ease, not the near-instant settle of a stiff spring; a
+// drag-drop hands it over already on the target, so the same curve just
+// eases the last stretch. Soft and near-critically damped — arrives
+// without wobbling on the pile.
+const ARRIVE_SPRING = { type: 'spring' as const, stiffness: 150, damping: 26, mass: 1.1 }
+
 // The card is always "held" by its top-center, like pinching the top edge
 // between two fingers — not by whichever pixel you happened to click.
 // Wherever the pointer goes, that exact point follows it, and the sway
@@ -112,7 +121,6 @@ export function CardView({
   pileId,
   draggable,
   revealOnMount,
-  revealFromX,
   style,
   onDrop,
   onClickMove,
@@ -158,34 +166,41 @@ export function CardView({
   // (snapping back to rest), and animated down to 0 by `retarget` below.
   // Splitting these means the settle-in/settle-back transitions can still
   // ease smoothly without adding any per-frame lag to live tracking.
-  // A just-drawn card starts shifted back over the stock (revealFromX) and
-  // slides home to 0 as it turns over — see the mount effect below. Every
-  // other card starts at rest.
-  const rawX = useMotionValue(revealOnMount ? (revealFromX ?? 0) : 0)
-  const rawY = useMotionValue(0)
+  //
+  // A card that just changed piles mounts here already shifted by `flip`
+  // — the board-space vector from its new slot back to where it visually
+  // was — and eases it to zero (below), so it glides in from its real
+  // previous position instead of blinking to the new pile. `useFlipOffset`
+  // only carries a value on the render that first mounts a just-moved
+  // card, and a card is only "just moved" once per mount, so a ref locks
+  // it in.
+  const flipOnMount = useRef(useFlipOffset(card.id))
+  const rawX = useMotionValue(flipOnMount.current?.dx ?? 0)
+  const rawY = useMotionValue(flipOnMount.current?.dy ?? 0)
   const catchUpX = useMotionValue(0)
   const catchUpY = useMotionValue(0)
   const x = useTransform([rawX, catchUpX], (latest) => (latest[0] as number) + (latest[1] as number))
   const y = useTransform([rawY, catchUpY], (latest) => (latest[0] as number) + (latest[1] as number))
 
-  // The stock → waste slide. Runs once, on the mount of the freshly-drawn
-  // card: ease `rawX` from over-the-stock back to rest on exactly the same
-  // curve and duration as the face turn-over (the inner element, below),
-  // so the card is still crossing the gap while it flips. `layout`/
-  // `layoutId` are suppressed for this card meanwhile (see the outer
-  // element) so Motion's own projection doesn't also fire and double it.
-  const revealRef = useRef<ReturnType<typeof animate> | null>(null)
+  // Ease that offset to zero, once, on mount. A draw stretches the glide
+  // to the face turn-over's slow curve so the card is still crossing the
+  // gap as it flips; every other move uses the quick arrival spring.
+  const stopFlip = useRef<() => void>(() => {})
   useEffect(() => {
-    if (!revealOnMount) return
-    // `revealFromX` was already loaded into rawX's initial value; this just
-    // eases it home. A card is only ever freshly-drawn once, so this runs
-    // a single time per mounted instance.
-    revealRef.current = animate(rawX, 0, {
-      duration: DRAW_FLIP_MS / 1000,
-      ease: DRAW_FLIP_EASE,
-    })
-    return () => revealRef.current?.stop()
-  }, [revealOnMount, rawX])
+    if (!flipOnMount.current) return
+    const transition = revealOnMount
+      ? { duration: DRAW_FLIP_MS / 1000, ease: DRAW_FLIP_EASE }
+      : ARRIVE_SPRING
+    const ax = animate(rawX, 0, transition)
+    const ay = animate(rawY, 0, transition)
+    stopFlip.current = () => {
+      ax.stop()
+      ay.stop()
+    }
+    return stopFlip.current
+    // Mount-only: `flipOnMount` and the two motion values are all stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   /**
    * Jumps `raw` straight to `newValue` — so every tracking update after
@@ -240,8 +255,8 @@ export function CardView({
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (liftOnPress) setIsPressed(true)
-    // Grabbing a card mid-draw-reveal hands control to the pointer.
-    revealRef.current?.stop()
+    // Grabbing a card mid-glide hands control to the pointer.
+    stopFlip.current()
     // Capture the pointer unconditionally, even for a non-draggable card
     // (e.g. the stock, which is clickable but never dragged). Without
     // this, the slightest pointer drift during a tap can carry the
@@ -313,10 +328,14 @@ export function CardView({
     onPressEnd?.()
 
     if (isDraggingRef.current) {
-      onDragEnd?.()
       const destinationId = registry.findPileAt(event.clientX, event.clientY)
+      // Hand up where the card currently sits (board-space offset from its
+      // slot) so, if the drop lands, its glide home starts from the cursor
+      // rather than snapping back to the slot first.
+      onDragEnd?.({ x: rawX.get(), y: rawY.get() })
       const moved = destinationId ? onDrop(card, destinationId) : false
       if (!moved) {
+        onDragEnd?.(null)
         // Snap back to the rest position — the pile it came from hasn't
         // changed, so there's nowhere else for it to go. `retarget` eases
         // it back smoothly instead of teleporting, and the wiggle sells
@@ -335,26 +354,11 @@ export function CardView({
 
   return (
     <motion.div
-      // Layout projection (for the cross-pile FLIP animation when a card
-      // moves to a different parent) fights with our manual pointer-driven
-      // x/y while a card is actively held — Motion tries to compensate for
-      // the "unexpected" position/size change with its own corrective
-      // transform, which visibly distorts the card's scale mid-drag. Only
-      // enabling it when the card isn't currently pressed keeps the FLIP
-      // animation for ordinary moves while leaving drags entirely to our
-      // own math. It's also off during a draw reveal — that card drives
-      // its own stock → waste slide (`rawX`, above), and Motion's
-      // projection running as well would fight it and overshoot.
-      layout={!isPressed && !followTransform && !revealOnMount}
-      // Scopes that layout animation to "this card actually changed
-      // pile" rather than "something, somewhere in the shared layoutId
-      // group, re-rendered". Without this, dropping the top card of a
-      // pile can make the card left behind underneath it — whose own
-      // position never changed — visibly animate anyway, since Motion
-      // otherwise re-measures every layout-enabled sibling on every
-      // render and treats any of them as needing a corrective transition.
-      layoutDependency={pileId}
-      layoutId={revealOnMount ? undefined : card.id}
+      // Cross-pile motion is done by hand (the flip-offset effect above),
+      // not Motion's layout projection — the projection fought the
+      // pointer-driven x/y during drags and misjudged the start position
+      // under the board's `scale()` transform, so a moved card would jump
+      // from a wrong spot or not animate at all.
       className="absolute left-0 top-0 touch-none"
       style={{
         width: CARD_WIDTH,
@@ -374,17 +378,7 @@ export function CardView({
       }}
       initial={false}
       animate={{ scale: isPressed || followTransform ? 1.07 : 1 }}
-      transition={{
-        // The press-lift scale settles briskly.
-        default: { type: 'spring', stiffness: 420, damping: 34, mass: 0.9 },
-        // Cross-pile moves (`layoutId`) — a tap/auto-move sends a card the
-        // full width of the board, so this needs to read as a travelling
-        // glide, not the near-instant settle a fast spring gives. A
-        // drag-drop lands the card on the target already, so the same
-        // curve just eases the last stretch home. Soft, near-critically
-        // damped so it arrives without wobbling on the pile.
-        layout: { type: 'spring', stiffness: 150, damping: 26, mass: 1.1 },
-      }}
+      transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.9 }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}

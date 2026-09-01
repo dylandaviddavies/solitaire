@@ -23,8 +23,8 @@ export function WastePileView({
   const top = cards[cards.length - 1]
   // The card just underneath the top one, if any — kept mounted (it's
   // keyed by id, so it's the very same instance that used to be the top
-  // card) and peeking out slightly behind it, so drawing or dragging the
-  // top card away reveals a card that was quietly there the whole time
+  // card), squarely behind the top card, so drawing or dragging the top
+  // card away reveals a card that was quietly there the whole time
   // instead of the pile going instantly blank.
   const under = cards[cards.length - 2]
 
@@ -37,7 +37,7 @@ export function WastePileView({
             card={under}
             pileId={pile.id}
             draggable={false}
-            style={{ top: 3, left: 2, zIndex: -1 }}
+            style={{ top: 0, left: 0, zIndex: -1 }}
             onDrop={() => false}
             onClickMove={() => {}}
             onActivate={() => {}}

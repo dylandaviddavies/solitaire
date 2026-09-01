@@ -66,12 +66,6 @@ interface CardViewProps {
    * draws, and the card immediately flips away to the waste, so lifting
    * it first just reads as a snap-back). */
   liftOnPress?: boolean
-  /** Whether this card participates in the shared-layout (`layoutId`)
-   * system that FLIP-animates a card sliding from one pile to another.
-   * Default true. False for the stock, whose cards never travel — they
-   * sit face-down until consumed — so a draw should read as the waste
-   * card flipping in place, not sliding over from the deck. */
-  sharedLayout?: boolean
 }
 
 // Seconds of delay added per card down a run, so a group wiggle ripples
@@ -126,7 +120,6 @@ export function CardView({
   followTransform,
   groupWiggle,
   liftOnPress = true,
-  sharedLayout = true,
 }: CardViewProps) {
   const registry = useDropRegistry()
   const cardBack = useCardBackPreference()
@@ -325,7 +318,7 @@ export function CardView({
       // enabling it when the card isn't currently pressed keeps the FLIP
       // animation for ordinary moves while leaving drags entirely to our
       // own math.
-      layout={sharedLayout && !isPressed && !followTransform}
+      layout={!isPressed && !followTransform}
       // Scopes that layout animation to "this card actually changed
       // pile" rather than "something, somewhere in the shared layoutId
       // group, re-rendered". Without this, dropping the top card of a
@@ -334,7 +327,7 @@ export function CardView({
       // otherwise re-measures every layout-enabled sibling on every
       // render and treats any of them as needing a corrective transition.
       layoutDependency={pileId}
-      layoutId={sharedLayout ? card.id : undefined}
+      layoutId={card.id}
       className="absolute left-0 top-0 touch-none"
       style={{
         width: CARD_WIDTH,

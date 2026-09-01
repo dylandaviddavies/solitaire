@@ -12,9 +12,9 @@ export function StockPileView({ pile, onDraw }: StockPileViewProps) {
   const cards = pile.getCards()
   const top = cards[cards.length - 1]
   // A face-down peek of the next card down, kept mounted the same way as
-  // the waste/foundation piles do — mostly so the deck reads as an actual
-  // stack rather than a single flat card, and so it doesn't visually
-  // "empty out" a beat early right before the last card is drawn.
+  // the waste pile does — squarely behind the top card (no offset), so the
+  // deck doesn't visually "empty out" a beat early right before the last
+  // card is drawn.
   const under = cards[cards.length - 2]
 
   return (
@@ -38,8 +38,7 @@ export function StockPileView({ pile, onDraw }: StockPileViewProps) {
             card={under}
             pileId={pile.id}
             draggable={false}
-            sharedLayout={false}
-            style={{ top: 3, left: 2, zIndex: -1 }}
+            style={{ top: 0, left: 0, zIndex: -1 }}
             onDrop={() => false}
             onClickMove={() => {}}
             onActivate={() => {}}
@@ -60,12 +59,12 @@ export function StockPileView({ pile, onDraw }: StockPileViewProps) {
           pileId={pile.id}
           draggable={false}
           // Clicking the stock is a draw, not a card pickup — skip the
-          // press lift so the top card flips straight to the waste
-          // instead of raising and snapping back first. And keep it out
-          // of the shared-layout system so the drawn card flips in place
-          // on the waste rather than sliding over from the deck.
+          // press lift so the top card turns straight over onto the waste
+          // instead of raising and snapping back first. It stays in the
+          // shared-layout system (default) so that turn-over travels from
+          // the deck to the waste, and so the initial deal visibly deals
+          // each card out from here into its tableau column.
           liftOnPress={false}
-          sharedLayout={false}
           style={{ top: 0, left: 0, zIndex: 0 }}
           onDrop={() => false}
           onClickMove={onDraw}

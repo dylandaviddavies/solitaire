@@ -21,9 +21,9 @@ interface ToolbarProps {
 }
 
 const buttonCommon =
-  'rounded-full font-semibold uppercase tracking-wide shadow-[0_4px_14px_rgba(0,0,0,0.28)] transition-all duration-150 active:translate-y-0 active:scale-95 active:shadow-[0_2px_8px_rgba(0,0,0,0.25)]'
-const buttonRoomy = `${buttonCommon} px-3.5 py-2 text-xs sm:px-5 sm:py-2.5 sm:text-sm sm:hover:-translate-y-0.5 sm:hover:shadow-[0_6px_18px_rgba(0,0,0,0.32)]`
-const buttonDense = `${buttonCommon} px-3 py-1 text-[11px]`
+  'rounded-full font-semibold uppercase shadow-[0_4px_14px_rgba(0,0,0,0.28)] transition-all duration-150 active:translate-y-0 active:scale-95 active:shadow-[0_2px_8px_rgba(0,0,0,0.25)]'
+const buttonRoomy = `${buttonCommon} tracking-wide px-3.5 py-2 text-xs sm:px-5 sm:py-2.5 sm:text-sm sm:hover:-translate-y-0.5 sm:hover:shadow-[0_6px_18px_rgba(0,0,0,0.32)]`
+const buttonDense = `${buttonCommon} px-2.5 py-1 text-[11px]`
 
 export function Toolbar({
   movesCount,
@@ -51,10 +51,10 @@ export function Toolbar({
         }`}
       >
         <div className={`flex items-center ${dense ? 'gap-1.5' : 'gap-1.5 sm:gap-2'}`}>
-          <span className={dense ? 'text-base' : 'text-xl sm:text-2xl'}>🃏</span>
+          <span className={dense ? 'text-lg' : 'text-xl sm:text-2xl'}>🃏</span>
           <h1
             className={`font-bold uppercase tracking-wide drop-shadow-sm ${
-              dense ? 'text-sm' : 'text-lg sm:text-2xl'
+              dense ? 'sr-only' : 'text-lg sm:text-2xl'
             }`}
           >
             Solitaire

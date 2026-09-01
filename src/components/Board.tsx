@@ -4,6 +4,7 @@ import { TABLEAU_COLUMNS } from '../domain/GameEngine'
 import { useBackgroundPreference } from '../hooks/useBackgroundPreference'
 import { useColumnGap } from '../hooks/useColumnGap'
 import { useGameEngine } from '../hooks/useGameEngine'
+import { useIsNarrowViewport } from '../hooks/useIsNarrowViewport'
 import { useShortViewport } from '../hooks/useShortViewport'
 import { BACKGROUND_GRADIENTS } from '../lib/backgrounds'
 import { DropRegistryProvider } from '../lib/DropRegistryContext'
@@ -63,6 +64,7 @@ export function Board() {
   const background = useBackgroundPreference()
   const columnGap = useColumnGap()
   const shortViewport = useShortViewport()
+  const narrowViewport = useIsNarrowViewport()
 
   // A short viewport gets a tighter top-row gap and a much shorter tableau
   // band, so the whole board scales down less on a landscape phone.
@@ -192,7 +194,7 @@ export function Board() {
             won={Boolean(winInfo)}
             canUndo={engine.canUndo}
             canAutoComplete={engine.canAutoComplete()}
-            dense={shortViewport}
+            dense={shortViewport || narrowViewport}
             onNewGame={handleNewGame}
             onUndo={() => engine.undo()}
             onAutoComplete={handleAutoComplete}

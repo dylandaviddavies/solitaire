@@ -7,11 +7,11 @@
  */
 
 // --- The stock → waste draw -----------------------------------------------
-// The card slides across the gap while its face turns over, on one slow
+// The card slides across the gap while its face turns over, on one
 // decelerating curve so the turn begins at the stock and lands on the
 // waste rather than snapping across and then rotating. `Board` also needs
 // the duration to know when the reveal is over.
-export const DRAW_FLIP_MS = 800
+export const DRAW_FLIP_MS = 620
 export const DRAW_FLIP = {
   duration: DRAW_FLIP_MS / 1000,
   // Ease in off the stock, ease out onto the waste, and spend the middle
@@ -19,22 +19,38 @@ export const DRAW_FLIP = {
   ease: [0.5, 0, 0.2, 1],
 } as const
 
+// --- The waste → stock recycle flourish ---------------------------------
+/** When the stock runs dry and the waste is turned back over to refill it,
+ * a short stack of card-backs sweeps from the waste slot onto the stock
+ * and squares up — a visual "…and shuffle". Purely decorative: the real
+ * cards are already re-stacked by the time it plays. */
+export const RECYCLE_GHOSTS = 4
+export const RECYCLE_SWEEP_MS = 440
+export const RECYCLE_STAGGER_MS = 55
+export const RECYCLE_SWEEP = {
+  duration: RECYCLE_SWEEP_MS / 1000,
+  ease: [0.36, 0, 0.2, 1],
+} as const
+/** How long the whole staggered flourish runs — the caller drops the
+ * transient nodes after this. */
+export const RECYCLE_TOTAL_MS = RECYCLE_SWEEP_MS + RECYCLE_GHOSTS * RECYCLE_STAGGER_MS + 140
+
 // --- Cards settling into place ------------------------------------------
 /** A card released from a drag drops the short distance from the cursor
  * into its slot — quick, and a little under-damped so it clicks in with a
  * small bounce. */
-export const DROP_SETTLE = { type: 'spring', stiffness: 340, damping: 25, mass: 0.9 } as const
+export const DROP_SETTLE = { type: 'spring', stiffness: 390, damping: 25, mass: 0.85 } as const
 /** A tap/auto-move sends a card the full width of the board, so it wants a
  * travelling ease — soft and near-critically damped, arriving without
  * wobbling on the pile. */
-export const ARRIVE_SPRING = { type: 'spring', stiffness: 150, damping: 26, mass: 1.1 } as const
+export const ARRIVE_SPRING = { type: 'spring', stiffness: 185, damping: 25, mass: 1 } as const
 /** Returns a card to its rest slot after an invalid drop — a bit of
  * spring is welcome here. */
-export const SNAP_BACK = { type: 'spring', stiffness: 480, damping: 34, mass: 0.6 } as const
+export const SNAP_BACK = { type: 'spring', stiffness: 520, damping: 34, mass: 0.55 } as const
 /** Runs once as a drag begins: a short, finite ease that glides the card
  * from wherever it was grabbed onto the cursor and ends at exactly 0, so
  * tracking is pixel-tight from then on. */
-export const LOCK_ON = { type: 'tween', duration: 0.16, ease: 'easeOut' } as const
+export const LOCK_ON = { type: 'tween', duration: 0.13, ease: 'easeOut' } as const
 
 // --- The lift under the pointer ---------------------------------------------
 /** Scale + shadow of a pressed/carried card, and the spring the outer
@@ -55,7 +71,7 @@ export const LIFT_SHADOW = '0 10px 0 rgba(15,15,20,0.3), 0 22px 30px rgba(15,15,
 /** Default spring for the inner card element — the face-up roll and the
  * lift's y/shadow. Distinct from the outer `rotateY` timing (`DRAW_FLIP`),
  * which the draw stretches to match its slide. */
-export const FLIP_ROLL_SPRING = { type: 'spring', stiffness: 380, damping: 26 } as const
+export const FLIP_ROLL_SPRING = { type: 'spring', stiffness: 430, damping: 26 } as const
 
 // --- The drag sway --------------------------------------------------------
 /** Max tilt (degrees) of a carried card, and the slow spring that lags the

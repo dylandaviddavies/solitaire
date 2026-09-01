@@ -8,7 +8,7 @@ import { useGameEngine } from '../hooks/useGameEngine'
 import { useIsNarrowViewport } from '../hooks/useIsNarrowViewport'
 import { useReducedMotion } from '../hooks/useReducedMotion'
 import { useShortViewport } from '../hooks/useShortViewport'
-import { DRAW_FLIP_MS } from '../lib/animation'
+import { DRAW_FLIP_MS, RECYCLE_TOTAL_MS } from '../lib/animation'
 import { BACKGROUND_GRADIENTS } from '../lib/backgrounds'
 import { DropRegistryProvider } from '../lib/DropRegistryContext'
 import { highScores } from '../lib/highScores'
@@ -26,6 +26,7 @@ import { playSound } from '../lib/sound'
 import { tableauOffsets } from '../lib/tableauLayout'
 import { usePreference } from '../hooks/usePreference'
 import { FoundationSlotView } from './FoundationSlotView'
+import { RecycleFlourish } from './RecycleFlourish'
 import { ResponsiveStage } from './ResponsiveStage'
 import { StockPileView } from './StockPileView'
 import { TableauColumnView } from './TableauColumnView'
@@ -44,7 +45,7 @@ const FOUNDATION_START_COLUMN = TABLEAU_COLUMNS - FOUNDATION_COUNT
 // the card size there) and roomy everywhere with vertical space to spare.
 const TABLEAU_FAN_HEIGHT_ROOMY = 460
 const TABLEAU_FAN_HEIGHT_SHORT = 288
-const DEAL_STEP_MS = 55
+const DEAL_STEP_MS = 45
 
 interface WinInfo {
   movesMade: number
@@ -64,6 +65,9 @@ export function Board() {
   const [dealGeneration, setDealGeneration] = useState(0)
   const [winInfo, setWinInfo] = useState<WinInfo | null>(null)
   const [justDrawnId, setJustDrawnId] = useState<string | null>(null)
+  // Bumped each time the waste is turned back over into the stock — drives
+  // the decorative sweep in `RecycleFlourish`, then cleared once it's run.
+  const [recycleNonce, setRecycleNonce] = useState(0)
   // Everything the cards animate off of after the most recent mutation —
   // moved run, refused card, per-card entry vectors. One object so the
   // provider is one line; updated slice-by-slice from the handlers below.
@@ -324,15 +328,23 @@ export function Board() {
   const handleDraw = useCallback(() => {
     const recycling = engine.stock.isEmpty
     runMutation(() => engine.draw())
+    if (recycling) setRecycleNonce((n) => n + 1)
     playSound(recycling ? 'shuffle' : 'draw')
   }, [engine, runMutation])
+
+  // Retire the recycle-sweep nodes once the flourish has finished playing.
+  useEffect(() => {
+    if (recycleNonce === 0) return
+    const timer = window.setTimeout(() => setRecycleNonce(0), RECYCLE_TOTAL_MS)
+    return () => window.clearTimeout(timer)
+  }, [recycleNonce])
 
   const handleAutoComplete = useCallback(() => {
     const tick = () => {
       const r = runMutation(() => engine.autoCompleteStep())
       if (r.moved) {
         playSound('foundation', r.foundationsBefore)
-        window.setTimeout(tick, 90)
+        window.setTimeout(tick, 78)
       }
     }
     tick()
@@ -414,6 +426,12 @@ export function Board() {
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
                     isDropTarget={isDropTarget}
+                  />
+                  <RecycleFlourish
+                    nonce={recycleNonce}
+                    fromX={columnStride}
+                    toX={0}
+                    enabled={!reducedMotion}
                   />
                 </div>
               </div>

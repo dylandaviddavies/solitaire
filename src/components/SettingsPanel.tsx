@@ -1,13 +1,10 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { useRef, type ReactNode } from 'react'
-import { parseSeed, randomSeed } from '../domain/rng'
+import { type ReactNode } from 'react'
 import { useBackgroundPreference } from '../hooks/useBackgroundPreference'
 import { useCardBackPreference } from '../hooks/useCardBackPreference'
-import { useHighScores } from '../hooks/useHighScores'
 import { usePreference } from '../hooks/usePreference'
 import { BACKGROUND_GRADIENTS, BACKGROUND_OPTIONS } from '../lib/backgrounds'
 import { CARD_BACK_OPTIONS } from '../lib/cardBacks'
-import { formatClock } from '../hooks/useElapsedSeconds'
 import {
   backgroundPreference,
   cardBackPreference,
@@ -18,8 +15,6 @@ import { CardBack } from './CardBack'
 
 interface SettingsPanelProps {
   open: boolean
-  seed: number
-  onPlaySeed: (seed: number) => void
   onClose: () => void
 }
 
@@ -29,24 +24,13 @@ const MOTION_OPTIONS = [
   { id: 'reduced', label: 'Reduced' },
 ] as const
 
-/** A small preferences popover — the deal seed, appearance, sound and
- * motion. Appearance settings are saved to localStorage; the seed field
- * just seeds the next new game. */
-export function SettingsPanel({ open, seed, onPlaySeed, onClose }: SettingsPanelProps) {
+/** A small preferences popover — appearance, sound and motion, all saved
+ * to localStorage. Seeds live on the toolbar's `#seed` chip, not here. */
+export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const cardBack = useCardBackPreference()
   const background = useBackgroundPreference()
   const sound = usePreference(soundPreference)
   const motionLevel = usePreference(motionPreference)
-  const bests = useHighScores()
-  const seedBest = bests.bySeed[String(seed)]
-
-  // Uncontrolled + keyed on `seed`, so the field always re-seeds itself to
-  // the live deal when the panel opens or a new game starts.
-  const seedField = useRef<HTMLInputElement>(null)
-  const playTyped = () => {
-    const parsed = parseSeed(seedField.current?.value ?? '')
-    if (parsed !== null) onPlaySeed(parsed)
-  }
 
   return (
     <AnimatePresence>
@@ -69,50 +53,6 @@ export function SettingsPanel({ open, seed, onPlaySeed, onClose }: SettingsPanel
             transition={{ type: 'spring', stiffness: 320, damping: 28 }}
           >
             <div className="flex flex-col gap-5">
-              <section>
-                <h3 className="mb-2 text-base font-bold uppercase tracking-wide text-slate-800 sm:text-lg">
-                  Deal Seed
-                </h3>
-                <p className="mb-2 text-xs text-slate-500">
-                  Same seed, same deal — type one to replay a game or share it.
-                  {seedBest && (
-                    <>
-                      {' '}
-                      Best here: {formatClock(Math.floor(seedBest.elapsedMs / 1000))} · {seedBest.moves}{' '}
-                      moves.
-                    </>
-                  )}
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    key={seed}
-                    ref={seedField}
-                    type="text"
-                    inputMode="numeric"
-                    defaultValue={String(seed)}
-                    onKeyDown={(e) => e.key === 'Enter' && playTyped()}
-                    className="min-w-0 flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-violet-400"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (seedField.current) seedField.current.value = String(randomSeed())
-                    }}
-                    title="Random seed"
-                    className="shrink-0 rounded-full bg-slate-100 px-3 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-200"
-                  >
-                    🎲
-                  </button>
-                  <button
-                    type="button"
-                    onClick={playTyped}
-                    className="shrink-0 rounded-full bg-violet-500 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition-colors hover:bg-violet-600 active:scale-95"
-                  >
-                    Play
-                  </button>
-                </div>
-              </section>
-
               <SwatchGroup
                 title="Card Back"
                 options={CARD_BACK_OPTIONS}

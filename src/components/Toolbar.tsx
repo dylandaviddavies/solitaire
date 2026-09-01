@@ -1,6 +1,7 @@
 import { motion } from 'motion/react'
 import { useState } from 'react'
 import { formatClock, useElapsedSeconds } from '../hooks/useElapsedSeconds'
+import { SeedMenu } from './SeedMenu'
 import { SettingsPanel } from './SettingsPanel'
 
 interface ToolbarProps {
@@ -38,17 +39,7 @@ export function Toolbar({
 }: ToolbarProps) {
   const elapsed = useElapsedSeconds(startedAtMs, !won)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [copied, setCopied] = useState(false)
-
-  const copySeed = () => {
-    navigator.clipboard?.writeText(String(seed)).then(
-      () => {
-        setCopied(true)
-        window.setTimeout(() => setCopied(false), 1200)
-      },
-      () => {},
-    )
-  }
+  const [seedMenuOpen, setSeedMenuOpen] = useState(false)
 
   const button = dense ? buttonDense : buttonRoomy
 
@@ -81,16 +72,29 @@ export function Toolbar({
             <span>⏱ {formatClock(elapsed)}</span>
             <span>👣 {movesCount}</span>
           </div>
-          {!dense && (
+          <div className="relative">
             <button
               type="button"
-              onClick={copySeed}
-              title="Copy seed"
-              className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur-sm transition-colors hover:bg-white/25 sm:py-1.5"
+              onClick={() => setSeedMenuOpen((v) => !v)}
+              title="Deal seed — copy or change"
+              aria-haspopup="dialog"
+              aria-expanded={seedMenuOpen}
+              className={`rounded-full bg-white/15 font-semibold backdrop-blur-sm transition-colors hover:bg-white/25 ${
+                dense ? 'px-2 py-0.5 text-[10px]' : 'px-3 py-1 text-xs sm:py-1.5'
+              }`}
             >
-              {copied ? 'copied!' : `#${seed}`}
+              #{seed}
             </button>
-          )}
+            <SeedMenu
+              open={seedMenuOpen}
+              seed={seed}
+              onPlaySeed={(s) => {
+                onNewGame(s)
+                setSeedMenuOpen(false)
+              }}
+              onClose={() => setSeedMenuOpen(false)}
+            />
+          </div>
         </div>
 
         <div className={`flex items-center ${dense ? 'gap-1.5' : 'gap-1.5 sm:gap-2'}`}>
@@ -133,15 +137,8 @@ export function Toolbar({
         </div>
       </div>
 
-      <SettingsPanel
-        open={settingsOpen}
-        seed={seed}
-        onPlaySeed={(s) => {
-          onNewGame(s)
-          setSettingsOpen(false)
-        }}
-        onClose={() => setSettingsOpen(false)}
-      />
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
     </>
   )
 }

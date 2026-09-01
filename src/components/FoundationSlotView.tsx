@@ -27,11 +27,10 @@ export function FoundationSlotView({
   const cards = pile.getCards()
   const top = cards[cards.length - 1]
   // The card just underneath the top one, if any — kept mounted (same
-  // instance, since it's keyed by id) and peeking out slightly behind the
-  // top card. Without this, dragging the top card off a foundation (this
-  // game allows it) made the previous card underneath just pop into
-  // existence a moment later instead of having been quietly there all
-  // along.
+  // instance, since it's keyed by id), square behind the top card.
+  // Without this, dragging the top card off a foundation (this game allows
+  // it) made the previous card underneath just pop into existence a moment
+  // later instead of having been quietly there all along.
   const under = cards[cards.length - 2]
 
   return (
@@ -52,7 +51,7 @@ export function FoundationSlotView({
             card={under}
             pileId={pile.id}
             draggable={false}
-            style={{ top: 3, left: 2, zIndex: -1 }}
+            style={{ top: 0, left: 0, zIndex: -1 }}
             onDrop={() => false}
             onClickMove={() => {}}
             onActivate={() => {}}

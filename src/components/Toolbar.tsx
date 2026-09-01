@@ -62,15 +62,22 @@ export function Toolbar({
         </div>
 
         <div className={`flex items-center ${dense ? 'gap-1.5' : 'gap-2'}`}>
+          {/* tabular-nums + a reserved min-width per value so the digits
+              never nudge the pill (or the seed chip after it) as they
+              tick — a proportional "1" vs "0" was enough to jitter it. */}
           <div
-            className={`flex items-center rounded-full bg-white/15 font-semibold backdrop-blur-sm ${
+            className={`flex items-center rounded-full bg-white/15 font-semibold tabular-nums backdrop-blur-sm ${
               dense
                 ? 'gap-2 px-2.5 py-0.5 text-[11px]'
                 : 'gap-2.5 px-3 py-1 text-xs sm:gap-4 sm:px-4 sm:py-1.5 sm:text-sm'
             }`}
           >
-            <span>⏱ {formatClock(elapsed)}</span>
-            <span>👣 {movesCount}</span>
+            <span>
+              ⏱ <span className="inline-block min-w-[4ch] text-left">{formatClock(elapsed)}</span>
+            </span>
+            <span>
+              👣 <span className="inline-block min-w-[2ch] text-left">{movesCount}</span>
+            </span>
           </div>
           <div className="relative">
             <button

@@ -1,6 +1,8 @@
 import { AnimatePresence, motion } from 'motion/react'
+import type { ReactNode } from 'react'
 import { BACKGROUND_GRADIENTS, BACKGROUND_OPTIONS, type BackgroundId } from '../lib/backgrounds'
-import { CARD_BACK_GRADIENTS, CARD_BACK_OPTIONS, type CardBackId } from '../lib/cardBacks'
+import { CARD_BACK_OPTIONS, type CardBackId } from '../lib/cardBacks'
+import { CardBack } from './CardBack'
 
 interface SettingsPanelProps {
   open: boolean
@@ -48,14 +50,22 @@ export function SettingsPanel({
                 options={CARD_BACK_OPTIONS}
                 current={cardBack}
                 onSelect={onSelectCardBack}
-                swatchClass={(id) => CARD_BACK_GRADIENTS[id]}
+                renderSwatch={(id) => (
+                  <span className="block h-14 w-10 sm:h-16 sm:w-11">
+                    <CardBack variant={id} />
+                  </span>
+                )}
               />
               <SwatchGroup
                 title="Background"
                 options={BACKGROUND_OPTIONS}
                 current={background}
                 onSelect={onSelectBackground}
-                swatchClass={(id) => BACKGROUND_GRADIENTS[id]}
+                renderSwatch={(id) => (
+                  <span
+                    className={`block h-14 w-10 rounded-[8px] bg-gradient-to-b shadow-inner sm:h-16 sm:w-11 ${BACKGROUND_GRADIENTS[id]}`}
+                  />
+                )}
               />
             </div>
             <button
@@ -77,18 +87,17 @@ interface SwatchGroupProps<T extends string> {
   options: ReadonlyArray<{ id: T; label: string }>
   current: T
   onSelect: (id: T) => void
-  /** Tailwind gradient-stops string for the swatch preview of a given option. */
-  swatchClass: (id: T) => string
+  renderSwatch: (id: T) => ReactNode
 }
 
-/** One labelled grid of selectable gradient swatches — shared by every
- * appearance setting so they stay visually identical. */
+/** One labelled grid of selectable swatches — shared by every appearance
+ * setting so they stay visually identical. */
 function SwatchGroup<T extends string>({
   title,
   options,
   current,
   onSelect,
-  swatchClass,
+  renderSwatch,
 }: SwatchGroupProps<T>) {
   return (
     <section>
@@ -105,9 +114,7 @@ function SwatchGroup<T extends string>({
               current === option.id ? 'bg-slate-100 ring-2 ring-violet-500' : ''
             }`}
           >
-            <span
-              className={`h-14 w-10 rounded-[8px] bg-gradient-to-br shadow-inner sm:h-16 sm:w-11 ${swatchClass(option.id)}`}
-            />
+            {renderSwatch(option.id)}
             <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:text-[11px]">
               {option.label}
             </span>

@@ -81,7 +81,13 @@ const LIFT_SHADOW =
   '0 10px 0 rgba(15,15,20,0.3), 0 22px 30px rgba(15,15,20,0.38)'
 
 const SWAY_MAX_DEG = 16
-const DRAG_START_THRESHOLD_PX = 4
+// A drag only begins once the pointer has been held for at least
+// `DRAG_ACTIVATE_MS` *and* travelled past `DRAG_START_THRESHOLD_PX`. The
+// hold requirement is what keeps a click that drifts a few pixels (hand
+// tremor, the mouse shifting as the button goes down) from being read as
+// a drag when a tap was meant — release before the delay and it's a tap.
+const DRAG_ACTIVATE_MS = 140
+const DRAG_START_THRESHOLD_PX = 6
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
 
 // Settle transitions for the `catchUp` offset (see below). `LOCK_ON` runs
@@ -136,6 +142,7 @@ export function CardView({
   // be converted into a translate offset from that rest position.
   const restRect = useRef<{ left: number; top: number; width: number } | null>(null)
   const startPoint = useRef({ x: 0, y: 0 })
+  const pressedAt = useRef(0)
   const lastClientX = useRef(0)
   // Lifts the instant the card is grabbed (pointer down), not just once an
   // actual drag is recognized — a real card lifts as soon as you pinch it.
@@ -251,6 +258,7 @@ export function CardView({
     const rect = event.currentTarget.getBoundingClientRect()
     restRect.current = { left: rect.left, top: rect.top, width: rect.width }
     startPoint.current = { x: event.clientX, y: event.clientY }
+    pressedAt.current = performance.now()
     lastClientX.current = event.clientX
     isDraggingRef.current = false
   }
@@ -260,6 +268,7 @@ export function CardView({
 
     let justStarted = false
     if (!isDraggingRef.current) {
+      if (performance.now() - pressedAt.current < DRAG_ACTIVATE_MS) return
       const moved = Math.hypot(event.clientX - startPoint.current.x, event.clientY - startPoint.current.y)
       if (moved < DRAG_START_THRESHOLD_PX) return
       isDraggingRef.current = true

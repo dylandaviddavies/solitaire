@@ -106,19 +106,22 @@ export function Board() {
     }))
   }, [])
 
-  // The resting board-space (x, y) of every card, computed straight from
-  // the same geometry the piles render with — no DOM measuring, so it's
-  // immune to the stage's `scale()` transform. `runMutation` diffs this
-  // before and after a mutation to know how far each moved card should
-  // glide, and from where.
-  const cardPositions = useCallback((): Map<string, { x: number; y: number }> => {
+  // The resting board-space (x, y) and owning pile of every card, computed
+  // straight from the same geometry the piles render with — no DOM
+  // measuring, so it's immune to the stage's `scale()` transform.
+  // `runMutation` diffs this before and after a mutation to know how far
+  // each card should glide, from where, and whether it actually changed
+  // piles (vs. just shifted because its column's fan re-flowed).
+  const cardLayout = useCallback((): Map<string, { x: number; y: number; pile: string }> => {
     const stride = CARD_WIDTH + columnGap
     const colX = (i: number) => i * stride
-    const positions = new Map<string, { x: number; y: number }>()
-    for (const c of engine.stock.getCards()) positions.set(c.id, { x: 0, y: 0 })
-    for (const c of engine.waste.getCards()) positions.set(c.id, { x: stride, y: 0 })
+    const layout = new Map<string, { x: number; y: number; pile: string }>()
+    for (const c of engine.stock.getCards()) layout.set(c.id, { x: 0, y: 0, pile: 'stock' })
+    for (const c of engine.waste.getCards()) layout.set(c.id, { x: stride, y: 0, pile: 'waste' })
     engine.foundations.forEach((f, i) => {
-      for (const c of f.getCards()) positions.set(c.id, { x: colX(FOUNDATION_START_COLUMN + i), y: 0 })
+      for (const c of f.getCards()) {
+        layout.set(c.id, { x: colX(FOUNDATION_START_COLUMN + i), y: 0, pile: f.id })
+      }
     })
     engine.tableau.forEach((column, ci) => {
       const cards = column.getCards()
@@ -126,9 +129,11 @@ export function Board() {
         cards.map((c) => c.faceUp),
         tableauFanHeight,
       )
-      cards.forEach((c, idx) => positions.set(c.id, { x: colX(ci), y: tableauTop + offsets[idx] }))
+      cards.forEach((c, idx) => {
+        layout.set(c.id, { x: colX(ci), y: tableauTop + offsets[idx], pile: column.id })
+      })
     })
-    return positions
+    return layout
   }, [engine, columnGap, tableauTop, tableauFanHeight])
 
   const foundationTotal = useCallback(
@@ -143,19 +148,24 @@ export function Board() {
   const runMutation = useCallback(
     (apply: () => void) => {
       const foundationsBefore = foundationTotal()
-      const before = cardPositions()
+      const before = cardLayout()
       apply()
-      const after = cardPositions()
+      const after = cardLayout()
       const carried = dragOffset.current
       dragOffset.current = null
       const next = new Map<string, FlipOffset>()
       after.forEach((to, id) => {
         const from = before.get(id)
         if (!from) return
-        const dx = from.x - to.x + (carried?.x ?? 0)
-        const dy = from.y - to.y + (carried?.y ?? 0)
+        // The drop-cursor offset only belongs to cards that actually
+        // changed piles — not to a neighbour that merely shifted because
+        // its column's fan re-flowed (e.g. the card left behind on the
+        // waste when its top card is dragged off).
+        const relocated = carried != null && from.pile !== to.pile
+        const dx = from.x - to.x + (relocated ? carried.x : 0)
+        const dy = from.y - to.y + (relocated ? carried.y : 0)
         if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
-          next.set(id, carried ? { dx, dy, dragged: true } : { dx, dy })
+          next.set(id, relocated ? { dx, dy, dragged: true } : { dx, dy })
         }
       })
       setLastMove((prev) => ({ ...prev, flipOffsets: next }))
@@ -165,7 +175,7 @@ export function Board() {
         foundationsBefore,
       }
     },
-    [cardPositions, foundationTotal],
+    [cardLayout, foundationTotal],
   )
 
   // The "it landed" sound for a tap/drag move.

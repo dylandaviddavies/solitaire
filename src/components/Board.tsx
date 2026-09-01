@@ -192,6 +192,7 @@ export function Board() {
             won={Boolean(winInfo)}
             canUndo={engine.canUndo}
             canAutoComplete={engine.canAutoComplete()}
+            dense={shortViewport}
             onNewGame={handleNewGame}
             onUndo={() => engine.undo()}
             onAutoComplete={handleAutoComplete}
@@ -254,7 +255,7 @@ export function Board() {
             </ResponsiveStage>
           </div>
 
-          <div className="pb-2 sm:pb-6" />
+          <div className={shortViewport ? 'pb-1' : 'pb-2 sm:pb-6'} />
         </div>
 
         <WinOverlay

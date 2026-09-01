@@ -15,10 +15,8 @@ import {
   PRESS_SPRING,
   REST_SHADOW,
 } from '../lib/animation'
-import { useFlipOffset } from '../lib/FlipContext'
 import { CARD_HEIGHT, CARD_WIDTH } from '../lib/layout'
-import { useMovedRunPosition } from '../lib/RecentMovesContext'
-import { useRejectedNonce } from '../lib/RejectedMoveContext'
+import { useFlipOffset, useMovedRunPosition, useRejectedNonce } from '../lib/LastMoveContext'
 import { CardBack } from './CardBack'
 import { CardFace } from './CardFace'
 import { SparkleBurst } from './SparkleBurst'

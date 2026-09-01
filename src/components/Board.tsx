@@ -6,13 +6,16 @@ import { useColumnGap } from '../hooks/useColumnGap'
 import { useGameEngine } from '../hooks/useGameEngine'
 import { useIsNarrowViewport } from '../hooks/useIsNarrowViewport'
 import { useShortViewport } from '../hooks/useShortViewport'
+import { DRAW_FLIP_MS } from '../lib/animation'
 import { BACKGROUND_GRADIENTS } from '../lib/backgrounds'
 import { DropRegistryProvider } from '../lib/DropRegistryContext'
-import { DRAW_FLIP_MS } from '../lib/animation'
-import { FlipOffsetsContext, type FlipOffset, type FlipOffsets } from '../lib/FlipContext'
+import {
+  EMPTY_LAST_MOVE,
+  LastMoveContext,
+  type FlipOffset,
+  type LastMove,
+} from '../lib/LastMoveContext'
 import { CARD_HEIGHT, CARD_WIDTH } from '../lib/layout'
-import { RecentMovesContext } from '../lib/RecentMovesContext'
-import { RejectedMoveContext, type RejectedMove } from '../lib/RejectedMoveContext'
 import { tableauOffsets } from '../lib/tableauLayout'
 import { FoundationSlotView } from './FoundationSlotView'
 import { ResponsiveStage } from './ResponsiveStage'
@@ -50,15 +53,10 @@ export function Board() {
   const [dealGeneration, setDealGeneration] = useState(0)
   const [winInfo, setWinInfo] = useState<WinInfo | null>(null)
   const [justDrawnId, setJustDrawnId] = useState<string | null>(null)
-  // Cards relocated by the most recent move, in run order — the run head
-  // sparkles as it lands, via RecentMovesContext.
-  const [justMovedIds, setJustMovedIds] = useState<readonly string[]>([])
-  // The card whose last move the engine turned down (a tap/auto-move with
-  // nowhere to go). Nonce-bumped so shaking the same card twice replays.
-  const [rejected, setRejected] = useState<RejectedMove | null>(null)
-  // Board-space entry vectors for the cards that moved in the last
-  // mutation — each freshly-mounted CardView glides in from its own.
-  const [flipOffsets, setFlipOffsets] = useState<FlipOffsets>(new Map())
+  // Everything the cards animate off of after the most recent mutation —
+  // moved run, refused card, per-card entry vectors. One object so the
+  // provider is one line; updated slice-by-slice from the handlers below.
+  const [lastMove, setLastMove] = useState<LastMove>(EMPTY_LAST_MOVE)
   // Where a dragged card sits relative to its slot at the moment of drop,
   // stashed by `handleDragEnd` so `runMutation` can start that card's
   // glide home from the cursor rather than from its old slot.
@@ -94,7 +92,10 @@ export function Board() {
   const foundationLeft = (index: number) => columnLeft(FOUNDATION_START_COLUMN + index)
 
   const rejectCard = useCallback((cardId: string) => {
-    setRejected((prev) => ({ cardId, nonce: (prev?.nonce ?? 0) + 1 }))
+    setLastMove((prev) => ({
+      ...prev,
+      rejected: { cardId, nonce: (prev.rejected?.nonce ?? 0) + 1 },
+    }))
   }, [])
 
   // The resting board-space (x, y) of every card, computed straight from
@@ -142,13 +143,16 @@ export function Board() {
           next.set(id, carried ? { dx, dy, dragged: true } : { dx, dy })
         }
       })
-      setFlipOffsets(next)
+      setLastMove((prev) => ({ ...prev, flipOffsets: next }))
     },
     [cardPositions],
   )
 
   useEffect(() => engine.on('won', (payload) => setWinInfo(payload)), [engine])
-  useEffect(() => engine.on('moved', ({ cardIds }) => setJustMovedIds(cardIds)), [engine])
+  useEffect(
+    () => engine.on('moved', ({ cardIds }) => setLastMove((prev) => ({ ...prev, movedRunIds: cardIds }))),
+    [engine],
+  )
   useEffect(() => engine.on('invalidMove', ({ cardId }) => rejectCard(cardId)), [engine, rejectCard])
 
   // `justDrawnId` marks the one card mid draw-reveal — it drives the
@@ -251,9 +255,7 @@ export function Board() {
 
   return (
     <DropRegistryProvider>
-      <RecentMovesContext.Provider value={justMovedIds}>
-      <RejectedMoveContext.Provider value={rejected}>
-      <FlipOffsetsContext.Provider value={flipOffsets}>
+      <LastMoveContext.Provider value={lastMove}>
         <div
           className={`flex h-dvh w-full flex-col items-center overflow-hidden bg-gradient-to-b ${BACKGROUND_GRADIENTS[background]}`}
         >
@@ -335,9 +337,7 @@ export function Board() {
           elapsedMs={winInfo?.elapsedMs ?? 0}
           onNewGame={handleNewGame}
         />
-      </FlipOffsetsContext.Provider>
-      </RejectedMoveContext.Provider>
-      </RecentMovesContext.Provider>
+      </LastMoveContext.Provider>
     </DropRegistryProvider>
   )
 }

@@ -3,7 +3,6 @@ import type { Card } from '../domain/Card'
 import { TABLEAU_COLUMNS } from '../domain/GameEngine'
 import { useBackgroundPreference } from '../hooks/useBackgroundPreference'
 import { useGameEngine } from '../hooks/useGameEngine'
-import { useIsMobileLayout } from '../hooks/useIsMobileLayout'
 import { BACKGROUND_GRADIENTS } from '../lib/backgrounds'
 import { DropRegistryProvider } from '../lib/DropRegistryContext'
 import { CARD_HEIGHT, CARD_WIDTH, COLUMN_GAP } from '../lib/layout'
@@ -29,19 +28,10 @@ const STAGE_WIDTH = columnLeft(TABLEAU_COLUMNS - 1) + CARD_WIDTH
 // tableau columns, rather than a separately right-anchored group — that's
 // what makes them land in the same columns as the piles beneath them.
 const FOUNDATION_START_COLUMN = TABLEAU_COLUMNS - FOUNDATION_COUNT
-// Total width of the foundation group, for centering it on mobile.
-const FOUNDATION_SPAN = (FOUNDATION_COUNT - 1) * COLUMN_STRIDE + CARD_WIDTH
+const foundationLeft = (index: number) => columnLeft(FOUNDATION_START_COLUMN + index)
 const TABLEAU_TOP = CARD_HEIGHT + 32
 const TABLEAU_GROWTH_BUDGET = 460
-// On mobile, the stock/waste pair gets its own row at the very bottom of
-// the board instead of sitting up top with the foundations — on a phone
-// the whole board is one uniformly-scaled rectangle centered in the
-// viewport, so "bottom of the board" reliably lands near "bottom of the
-// screen" (the easiest area to reach one-handed) instead of the top
-// corner. Desktop has no such reach constraint, so it keeps the classic
-// top-left placement instead of paying for an extra reserved row.
-const BOTTOM_ROW_HEIGHT = CARD_HEIGHT + 32
-const STOCK_WASTE_WIDTH = CARD_WIDTH * 2 + COLUMN_GAP
+const STAGE_HEIGHT = TABLEAU_TOP + TABLEAU_GROWTH_BUDGET
 const DEAL_STEP_MS = 55
 
 interface WinInfo {
@@ -72,23 +62,7 @@ export function Board() {
   // would just tell the player where the correct move is). It's also
   // separate from `selected` (tap-to-move), which has its own lifecycle.
   const [isDragging, setIsDragging] = useState(false)
-  const isMobileLayout = useIsMobileLayout()
   const background = useBackgroundPreference()
-
-  // These depend on `isMobileLayout`, so they're computed per render
-  // rather than hoisted to module scope like the pure geometry constants
-  // above.
-  const stageHeight = TABLEAU_TOP + TABLEAU_GROWTH_BUDGET + (isMobileLayout ? BOTTOM_ROW_HEIGHT : 0)
-  const stockWasteTop = isMobileLayout ? stageHeight - CARD_HEIGHT : 0
-  const stockWasteLeft = isMobileLayout ? (STAGE_WIDTH - STOCK_WASTE_WIDTH) / 2 : columnLeft(0)
-  // Desktop keeps the foundations above the rightmost tableau columns
-  // (the stock/waste fill the gap on the left). On mobile that gap is
-  // empty — stock/waste have dropped to their own bottom row — so centre
-  // the foundation group instead of leaving it hugging the right edge.
-  const foundationLeft = (index: number) =>
-    isMobileLayout
-      ? (STAGE_WIDTH - FOUNDATION_SPAN) / 2 + index * COLUMN_STRIDE
-      : columnLeft(FOUNDATION_START_COLUMN + index)
 
   useEffect(() => engine.on('won', (payload) => setWinInfo(payload)), [engine])
   useEffect(() => engine.on('drawn', ({ cardId }) => setJustDrawnId(cardId)), [engine])
@@ -188,8 +162,8 @@ export function Board() {
           />
 
           <div className="flex min-h-0 w-full flex-1">
-            <ResponsiveStage baseWidth={STAGE_WIDTH} baseHeight={stageHeight}>
-              <div className="relative" style={{ width: STAGE_WIDTH, height: stageHeight }}>
+            <ResponsiveStage baseWidth={STAGE_WIDTH} baseHeight={STAGE_HEIGHT}>
+              <div className="relative" style={{ width: STAGE_WIDTH, height: STAGE_HEIGHT }}>
                 {engine.foundations.map((foundation, index) => (
                   <div
                     key={foundation.id}
@@ -225,7 +199,10 @@ export function Board() {
                   ))}
                 </div>
 
-                <div className="absolute flex" style={{ left: stockWasteLeft, top: stockWasteTop, gap: COLUMN_GAP }}>
+                {/* Stock + waste in the top-left corner — the classic
+                    Klondike spot, with the foundations filling the
+                    columns to their right. */}
+                <div className="absolute left-0 top-0 flex" style={{ gap: COLUMN_GAP }}>
                   <StockPileView pile={engine.stock} onDraw={() => engine.draw()} />
                   <WastePileView
                     pile={engine.waste}

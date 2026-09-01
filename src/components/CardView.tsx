@@ -118,8 +118,9 @@ export function CardView({
     onInvalidDrop: playWiggle,
     reducedMotion: reduced,
   })
-  const { isPressed } = drag
+  const { isPressed, isDragging } = drag
   const lifted = isPressed || Boolean(followTransform)
+  const dragging = isDragging || Boolean(followTransform)
 
   // The head of a run that just landed here sparkles as it mounts — the
   // "it worked" counterpart to the refused-move wiggle. The ref stops a
@@ -162,7 +163,8 @@ export function CardView({
         originX: drag.anchor.x,
         originY: drag.anchor.y,
         zIndex: lifted ? 200 : style?.zIndex,
-        cursor: draggable ? (isPressed ? 'grabbing' : 'grab') : 'pointer',
+        // Plain pointer on hover — only a drag in progress shows the fist.
+        cursor: dragging ? 'grabbing' : 'pointer',
       }}
       // Squash-and-stretch: a grabbed card pinches taller/narrower then
       // springs to the lift scale; a card landing from a drag mounts

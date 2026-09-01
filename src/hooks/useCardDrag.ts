@@ -91,6 +91,9 @@ export function useCardDrag({
   const stageScale = useStageScale()
 
   const [isPressed, setIsPressed] = useState(false)
+  // Reactive mirror of `isDragging.current`, for anything that needs to
+  // re-render when a real drag begins/ends (the cursor).
+  const [dragActive, setDragActive] = useState(false)
   const wasDragged = useRef(false)
   const isDragging = useRef(false)
   // Measured at grab time: the card's on-screen rest left/top and its
@@ -185,6 +188,7 @@ export function useCardDrag({
       isDragging.current = true
       wasDragged.current = true
       justStarted = true
+      setDragActive(true)
       onDragStart?.()
     }
 
@@ -211,6 +215,7 @@ export function useCardDrag({
 
   const onPointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
     setIsPressed(false)
+    setDragActive(false)
     rawTilt.set(0)
     onPressEnd?.()
 
@@ -237,6 +242,8 @@ export function useCardDrag({
     y,
     rotate,
     isPressed,
+    /** A real drag (past the activation threshold) is in progress. */
+    isDragging: dragActive,
     anchor: { x: ANCHOR_X, y: ANCHOR_Y },
     /** True (once) if the gesture just ended was a drag, not a tap — call
      * from the click handler to swallow the click that follows a drag. */

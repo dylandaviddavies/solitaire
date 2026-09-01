@@ -42,6 +42,12 @@ export const LOCK_ON = { type: 'tween', duration: 0.16, ease: 'easeOut' } as con
 export const LIFT_SCALE = 1.07
 export const LIFT_TRANSLATE_Y = -14
 export const PRESS_SPRING = { type: 'spring', stiffness: 420, damping: 34, mass: 0.9 } as const
+/** Squash-and-stretch: on grab the card pinches taller/narrower for a
+ * beat, on a drop-landing it splats wider/shorter, then a springy recover
+ * to rest. The classic bit of "juice". */
+export const SQUASH_X = 0.94
+export const SQUASH_Y = 1.06
+export const SQUASH_SPRING = { type: 'spring', stiffness: 520, damping: 17, mass: 0.7 } as const
 export const REST_SHADOW = '0 3px 0 rgba(15,15,20,0.35), 0 8px 14px rgba(15,15,20,0.28)'
 export const LIFT_SHADOW = '0 10px 0 rgba(15,15,20,0.3), 0 22px 30px rgba(15,15,20,0.38)'
 

@@ -53,7 +53,12 @@ interface UseCardDragOptions {
   /** A drag that ended on nothing / an invalid pile — for the "nope"
    * wiggle. The snap back to rest is handled here. */
   onInvalidDrop?: () => void
+  /** Pare the motion back: the entry glide and snap-back are instant and
+   * the carry sway is skipped. */
+  reducedMotion?: boolean
 }
+
+const INSTANT: Transition = { duration: 0 }
 
 /**
  * The whole pointer lifecycle of a card: it arrives (glides in from its
@@ -74,7 +79,10 @@ export function useCardDrag({
   onDragEnd,
   onDrop,
   onInvalidDrop,
+  reducedMotion = false,
 }: UseCardDragOptions) {
+  const settle = reducedMotion ? INSTANT : SNAP_BACK
+  const entryEase = reducedMotion ? INSTANT : entryTransition
   const registry = useDropRegistry()
   // The board is uniformly scaled to fit the viewport (see ResponsiveStage);
   // a translate set inside that scaled subtree is multiplied by the same
@@ -124,8 +132,8 @@ export function useCardDrag({
   const stopEntry = useRef<() => void>(() => {})
   useEffect(() => {
     if (!entryOffset) return
-    const ax = animate(rawX, 0, entryTransition)
-    const ay = animate(rawY, 0, entryTransition)
+    const ax = animate(rawX, 0, entryEase)
+    const ay = animate(rawY, 0, entryEase)
     stopEntry.current = () => {
       ax.stop()
       ay.stop()
@@ -189,7 +197,9 @@ export function useCardDrag({
       rawY.set(targetY)
     }
 
-    rawTilt.set(clamp((event.clientX - lastClientX.current) * 2.2, -SWAY_MAX_DEG, SWAY_MAX_DEG))
+    if (!reducedMotion) {
+      rawTilt.set(clamp((event.clientX - lastClientX.current) * 2.2, -SWAY_MAX_DEG, SWAY_MAX_DEG))
+    }
     lastClientX.current = event.clientX
   }
 
@@ -206,8 +216,8 @@ export function useCardDrag({
       const moved = destinationId ? onDrop(destinationId) : false
       if (!moved) {
         onDragEnd?.(null)
-        retarget(rawX, catchUpX, 0, SNAP_BACK)
-        retarget(rawY, catchUpY, 0, SNAP_BACK)
+        retarget(rawX, catchUpX, 0, settle)
+        retarget(rawY, catchUpY, 0, settle)
         onInvalidDrop?.()
       }
     }

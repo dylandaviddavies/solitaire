@@ -17,3 +17,25 @@ export const backgroundPreference = createPreference({
   fallback: DEFAULT_BACKGROUND,
   isValid: isBackgroundId,
 })
+
+export type SoundSetting = 'on' | 'off'
+const isSoundSetting = (v: string | null): v is SoundSetting => v === 'on' || v === 'off'
+
+/** Whether the synthesised sound effects play. */
+export const soundPreference = createPreference<SoundSetting>({
+  storageKey: `${STORAGE_PREFIX}sound`,
+  fallback: 'on',
+  isValid: isSoundSetting,
+})
+
+export type MotionSetting = 'system' | 'full' | 'reduced'
+const isMotionSetting = (v: string | null): v is MotionSetting =>
+  v === 'system' || v === 'full' || v === 'reduced'
+
+/** Animation level. `system` follows the OS "reduce motion" setting; the
+ * others override it. */
+export const motionPreference = createPreference<MotionSetting>({
+  storageKey: `${STORAGE_PREFIX}motion`,
+  fallback: 'system',
+  isValid: isMotionSetting,
+})

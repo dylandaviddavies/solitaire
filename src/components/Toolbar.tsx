@@ -1,9 +1,6 @@
 import { motion } from 'motion/react'
 import { useState } from 'react'
-import { useBackgroundPreference } from '../hooks/useBackgroundPreference'
-import { useCardBackPreference } from '../hooks/useCardBackPreference'
 import { formatClock, useElapsedSeconds } from '../hooks/useElapsedSeconds'
-import { backgroundPreference, cardBackPreference } from '../lib/preferences'
 import { SettingsPanel } from './SettingsPanel'
 
 interface ToolbarProps {
@@ -37,8 +34,6 @@ export function Toolbar({
   onAutoComplete,
 }: ToolbarProps) {
   const elapsed = useElapsedSeconds(startedAtMs, !won)
-  const cardBack = useCardBackPreference()
-  const background = useBackgroundPreference()
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   const button = dense ? buttonDense : buttonRoomy
@@ -112,14 +107,7 @@ export function Toolbar({
         </div>
       </div>
 
-      <SettingsPanel
-        open={settingsOpen}
-        cardBack={cardBack}
-        onSelectCardBack={cardBackPreference.set}
-        background={background}
-        onSelectBackground={backgroundPreference.set}
-        onClose={() => setSettingsOpen(false)}
-      />
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>
   )
 }

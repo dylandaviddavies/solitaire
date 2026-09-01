@@ -1,3 +1,4 @@
+import { MotionConfig } from 'motion/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Card } from '../domain/Card'
 import { TABLEAU_COLUMNS } from '../domain/GameEngine'
@@ -5,6 +6,7 @@ import { useBackgroundPreference } from '../hooks/useBackgroundPreference'
 import { useColumnGap } from '../hooks/useColumnGap'
 import { useGameEngine } from '../hooks/useGameEngine'
 import { useIsNarrowViewport } from '../hooks/useIsNarrowViewport'
+import { useReducedMotion } from '../hooks/useReducedMotion'
 import { useShortViewport } from '../hooks/useShortViewport'
 import { DRAW_FLIP_MS } from '../lib/animation'
 import { BACKGROUND_GRADIENTS } from '../lib/backgrounds'
@@ -16,7 +18,11 @@ import {
   type LastMove,
 } from '../lib/LastMoveContext'
 import { CARD_HEIGHT, CARD_WIDTH } from '../lib/layout'
+import { ReducedMotionContext } from '../lib/MotionPrefContext'
+import { motionPreference } from '../lib/preferences'
+import { playSound } from '../lib/sound'
 import { tableauOffsets } from '../lib/tableauLayout'
+import { usePreference } from '../hooks/usePreference'
 import { FoundationSlotView } from './FoundationSlotView'
 import { ResponsiveStage } from './ResponsiveStage'
 import { StockPileView } from './StockPileView'
@@ -73,6 +79,8 @@ export function Board() {
   const columnGap = useColumnGap()
   const shortViewport = useShortViewport()
   const narrowViewport = useIsNarrowViewport()
+  const reducedMotion = useReducedMotion()
+  const motionSetting = usePreference(motionPreference)
 
   // A short viewport gets a tighter top-row gap and a much shorter tableau
   // band, so the whole board scales down less on a landscape phone.
@@ -123,11 +131,18 @@ export function Board() {
     return positions
   }, [engine, columnGap, tableauTop, tableauFanHeight])
 
+  const foundationTotal = useCallback(
+    () => engine.foundations.reduce((n, f) => n + f.length, 0),
+    [engine],
+  )
+
   // Runs an engine mutation and captures how every card that moved should
   // animate into place: `from - to` in board space, plus the drop cursor
-  // offset for a card that was being dragged.
+  // offset for a card that was being dragged. Returns a small summary for
+  // the caller's sound cue.
   const runMutation = useCallback(
     (apply: () => void) => {
+      const foundationsBefore = foundationTotal()
       const before = cardPositions()
       apply()
       const after = cardPositions()
@@ -144,16 +159,41 @@ export function Board() {
         }
       })
       setLastMove((prev) => ({ ...prev, flipOffsets: next }))
+      return {
+        moved: next.size > 0,
+        toFoundation: foundationTotal() > foundationsBefore,
+        foundationsBefore,
+      }
     },
-    [cardPositions],
+    [cardPositions, foundationTotal],
   )
 
-  useEffect(() => engine.on('won', (payload) => setWinInfo(payload)), [engine])
+  // The "it landed" sound for a tap/drag move.
+  const playMoveSound = useCallback((r: ReturnType<typeof runMutation>) => {
+    if (r.toFoundation) playSound('foundation', r.foundationsBefore)
+    else if (r.moved) playSound('drop')
+  }, [])
+
+  useEffect(
+    () =>
+      engine.on('won', (payload) => {
+        setWinInfo(payload)
+        playSound('win')
+      }),
+    [engine],
+  )
   useEffect(
     () => engine.on('moved', ({ cardIds }) => setLastMove((prev) => ({ ...prev, movedRunIds: cardIds }))),
     [engine],
   )
-  useEffect(() => engine.on('invalidMove', ({ cardId }) => rejectCard(cardId)), [engine, rejectCard])
+  useEffect(
+    () =>
+      engine.on('invalidMove', ({ cardId }) => {
+        rejectCard(cardId)
+        playSound('invalid')
+      }),
+    [engine, rejectCard],
+  )
 
   // `justDrawnId` marks the one card mid draw-reveal — it drives the
   // stock → waste turn-over and, while set, keeps that card out of the
@@ -184,7 +224,10 @@ export function Board() {
       runMutation(() => {
         dealtOne = engine.dealNext()
       })
-      if (dealtOne) window.setTimeout(step, DEAL_STEP_MS)
+      if (dealtOne) {
+        playSound('deal')
+        window.setTimeout(step, DEAL_STEP_MS)
+      }
     }
     step()
     return () => {
@@ -195,12 +238,13 @@ export function Board() {
   const handleDrop = useCallback(
     (card: Card, destinationId: string) => {
       let moved = false
-      runMutation(() => {
+      const r = runMutation(() => {
         moved = engine.moveCard(card, destinationId)
       })
+      playMoveSound(r)
       return moved
     },
-    [engine, runMutation],
+    [engine, runMutation, playMoveSound],
   )
 
   // A plain click/tap: hand the card to the engine, which sends it (plus
@@ -208,22 +252,24 @@ export function Board() {
   // a tableau column. There's no "selected" middle state any more.
   const handleClickMove = useCallback(
     (card: Card) => {
-      runMutation(() => engine.autoMove(card))
+      playMoveSound(runMutation(() => engine.autoMove(card)))
     },
-    [engine, runMutation],
+    [engine, runMutation, playMoveSound],
   )
 
   const handleActivate = useCallback(
     (card: Card) => {
-      runMutation(() => {
+      const r = runMutation(() => {
         if (!engine.sendToFoundation(card)) rejectCard(card.id)
       })
+      playMoveSound(r)
     },
-    [engine, runMutation, rejectCard],
+    [engine, runMutation, rejectCard, playMoveSound],
   )
 
   const handleDragStart = useCallback(() => {
     setIsDragging(true)
+    playSound('pickup')
   }, [])
 
   const handleDragEnd = useCallback((offset: { x: number; y: number } | null) => {
@@ -240,21 +286,34 @@ export function Board() {
     engine.startNewGame()
     setWinInfo(null)
     setDealGeneration((g) => g + 1)
+    playSound('shuffle')
   }, [engine])
+
+  const handleDraw = useCallback(() => {
+    const recycling = engine.stock.isEmpty
+    runMutation(() => engine.draw())
+    playSound(recycling ? 'shuffle' : 'draw')
+  }, [engine, runMutation])
 
   const handleAutoComplete = useCallback(() => {
     const tick = () => {
-      let stepped = false
-      runMutation(() => {
-        stepped = engine.autoCompleteStep()
-      })
-      if (stepped) window.setTimeout(tick, 90)
+      const r = runMutation(() => engine.autoCompleteStep())
+      if (r.moved) {
+        playSound('foundation', r.foundationsBefore)
+        window.setTimeout(tick, 90)
+      }
     }
     tick()
   }, [engine, runMutation])
 
   return (
+    <MotionConfig
+      reducedMotion={
+        motionSetting === 'reduced' ? 'always' : motionSetting === 'full' ? 'never' : 'user'
+      }
+    >
     <DropRegistryProvider>
+      <ReducedMotionContext.Provider value={reducedMotion}>
       <LastMoveContext.Provider value={lastMove}>
         <div
           className={`flex h-dvh w-full flex-col items-center overflow-hidden bg-gradient-to-b ${BACKGROUND_GRADIENTS[background]}`}
@@ -312,7 +371,7 @@ export function Board() {
                     Klondike spot, with the foundations filling the
                     columns to their right. */}
                 <div className="absolute left-0 top-0 flex" style={{ gap: columnGap }}>
-                  <StockPileView pile={engine.stock} onDraw={() => runMutation(() => engine.draw())} />
+                  <StockPileView pile={engine.stock} onDraw={handleDraw} />
                   <WastePileView
                     pile={engine.waste}
                     justDrawnId={justDrawnId}
@@ -338,6 +397,8 @@ export function Board() {
           onNewGame={handleNewGame}
         />
       </LastMoveContext.Provider>
+      </ReducedMotionContext.Provider>
     </DropRegistryProvider>
+    </MotionConfig>
   )
 }

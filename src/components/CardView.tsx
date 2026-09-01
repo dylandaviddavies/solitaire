@@ -14,9 +14,13 @@ import {
   LIFT_TRANSLATE_Y,
   PRESS_SPRING,
   REST_SHADOW,
+  SQUASH_SPRING,
+  SQUASH_X,
+  SQUASH_Y,
 } from '../lib/animation'
 import { CARD_HEIGHT, CARD_WIDTH } from '../lib/layout'
 import { useFlipOffset, useMovedRunPosition, useRejectedNonce } from '../lib/LastMoveContext'
+import { useReducedMotionValue } from '../lib/MotionPrefContext'
 import { CardBack } from './CardBack'
 import { CardFace } from './CardFace'
 import { SparkleBurst } from './SparkleBurst'
@@ -85,7 +89,8 @@ export function CardView({
   liftOnPress = true,
 }: CardViewProps) {
   const cardBack = useCardBackPreference()
-  const { angle: wiggleAngle, play: playWiggle } = useWiggle()
+  const reduced = useReducedMotionValue()
+  const { angle: wiggleAngle, play: playWiggle } = useWiggle(!reduced)
 
   // A card that just changed piles mounts already offset by `entry` — the
   // board-space vector from its new slot back to where it visually was —
@@ -111,6 +116,7 @@ export function CardView({
     onDragEnd,
     onDrop: (destinationId) => onDrop?.(card, destinationId) ?? false,
     onInvalidDrop: playWiggle,
+    reducedMotion: reduced,
   })
   const { isPressed } = drag
   const lifted = isPressed || Boolean(followTransform)
@@ -122,10 +128,10 @@ export function CardView({
   const sparkledOnMove = useRef(false)
   const [sparkling, setSparkling] = useState(false)
   useEffect(() => {
-    if (runPosition !== 0 || sparkledOnMove.current) return
+    if (runPosition !== 0 || sparkledOnMove.current || reduced) return
     sparkledOnMove.current = true
     setSparkling(true)
-  }, [runPosition])
+  }, [runPosition, reduced])
 
   // Shake this card when the engine turns its move down — a drop onto a
   // pile that can't take it, a tap with nowhere legal to go. Keyed on the
@@ -158,11 +164,16 @@ export function CardView({
         zIndex: lifted ? 200 : style?.zIndex,
         cursor: draggable ? (isPressed ? 'grabbing' : 'grab') : 'pointer',
       }}
-      // A card that just landed from a drag mounts still lifted and settles
-      // to rest scale as it clicks in; everything else mounts flat.
-      initial={entry?.dragged ? { scale: LIFT_SCALE } : false}
-      animate={{ scale: lifted ? LIFT_SCALE : 1 }}
-      transition={PRESS_SPRING}
+      // Squash-and-stretch: a grabbed card pinches taller/narrower then
+      // springs to the lift scale; a card landing from a drag mounts
+      // splatted wider/shorter and recovers. `MotionConfig` flattens all
+      // of this under reduced motion.
+      initial={entry?.dragged && !reduced ? { scaleX: 1 / SQUASH_X, scaleY: 1 / SQUASH_Y } : false}
+      animate={{
+        scaleX: lifted ? [SQUASH_X, LIFT_SCALE] : 1,
+        scaleY: lifted ? [SQUASH_Y, LIFT_SCALE] : 1,
+      }}
+      transition={{ scaleX: SQUASH_SPRING, scaleY: SQUASH_SPRING, default: PRESS_SPRING }}
       {...drag.handlers}
       onClick={(event: React.MouseEvent) => {
         event.stopPropagation()

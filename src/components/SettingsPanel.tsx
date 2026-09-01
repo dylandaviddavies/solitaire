@@ -1,29 +1,37 @@
 import { AnimatePresence, motion } from 'motion/react'
 import type { ReactNode } from 'react'
-import { BACKGROUND_GRADIENTS, BACKGROUND_OPTIONS, type BackgroundId } from '../lib/backgrounds'
-import { CARD_BACK_OPTIONS, type CardBackId } from '../lib/cardBacks'
+import { useBackgroundPreference } from '../hooks/useBackgroundPreference'
+import { useCardBackPreference } from '../hooks/useCardBackPreference'
+import { usePreference } from '../hooks/usePreference'
+import { BACKGROUND_GRADIENTS, BACKGROUND_OPTIONS } from '../lib/backgrounds'
+import { CARD_BACK_OPTIONS } from '../lib/cardBacks'
+import {
+  backgroundPreference,
+  cardBackPreference,
+  motionPreference,
+  soundPreference,
+} from '../lib/preferences'
 import { CardBack } from './CardBack'
 
 interface SettingsPanelProps {
   open: boolean
-  cardBack: CardBackId
-  onSelectCardBack: (id: CardBackId) => void
-  background: BackgroundId
-  onSelectBackground: (id: BackgroundId) => void
   onClose: () => void
 }
 
-/** A small preferences popover — card-back and table-background choice,
- * each saved to localStorage so it survives reloads and carries over
- * between games. */
-export function SettingsPanel({
-  open,
-  cardBack,
-  onSelectCardBack,
-  background,
-  onSelectBackground,
-  onClose,
-}: SettingsPanelProps) {
+const MOTION_OPTIONS = [
+  { id: 'system', label: 'System' },
+  { id: 'full', label: 'Full' },
+  { id: 'reduced', label: 'Reduced' },
+] as const
+
+/** A small preferences popover — appearance, sound and motion — each saved
+ * to localStorage so it survives reloads and carries over between games. */
+export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
+  const cardBack = useCardBackPreference()
+  const background = useBackgroundPreference()
+  const sound = usePreference(soundPreference)
+  const motionLevel = usePreference(motionPreference)
+
   return (
     <AnimatePresence>
       {open && (
@@ -49,7 +57,7 @@ export function SettingsPanel({
                 title="Card Back"
                 options={CARD_BACK_OPTIONS}
                 current={cardBack}
-                onSelect={onSelectCardBack}
+                onSelect={cardBackPreference.set}
                 renderSwatch={(id) => (
                   <span className="block h-14 w-10 sm:h-16 sm:w-11">
                     <CardBack variant={id} />
@@ -60,12 +68,27 @@ export function SettingsPanel({
                 title="Background"
                 options={BACKGROUND_OPTIONS}
                 current={background}
-                onSelect={onSelectBackground}
+                onSelect={backgroundPreference.set}
                 renderSwatch={(id) => (
                   <span
                     className={`block h-14 w-10 rounded-[8px] bg-gradient-to-b shadow-inner sm:h-16 sm:w-11 ${BACKGROUND_GRADIENTS[id]}`}
                   />
                 )}
+              />
+              <SegmentedRow
+                title="Sound"
+                options={[
+                  { id: 'on', label: 'On' },
+                  { id: 'off', label: 'Off' },
+                ]}
+                current={sound}
+                onSelect={soundPreference.set}
+              />
+              <SegmentedRow
+                title="Motion"
+                options={MOTION_OPTIONS}
+                current={motionLevel}
+                onSelect={motionPreference.set}
               />
             </div>
             <button
@@ -118,6 +141,38 @@ function SwatchGroup<T extends string>({
             <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:text-[11px]">
               {option.label}
             </span>
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+interface SegmentedRowProps<T extends string> {
+  title: string
+  options: ReadonlyArray<{ id: T; label: string }>
+  current: T
+  onSelect: (id: T) => void
+}
+
+/** A labelled segmented control for the on/off-ish settings. */
+function SegmentedRow<T extends string>({ title, options, current, onSelect }: SegmentedRowProps<T>) {
+  return (
+    <section className="flex items-center justify-between gap-3">
+      <h3 className="text-base font-bold uppercase tracking-wide text-slate-800 sm:text-lg">
+        {title}
+      </h3>
+      <div className="flex overflow-hidden rounded-full bg-slate-100 p-0.5">
+        {options.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => onSelect(option.id)}
+            className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+              current === option.id ? 'bg-violet-500 text-white' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {option.label}
           </button>
         ))}
       </div>

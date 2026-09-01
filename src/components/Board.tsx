@@ -4,6 +4,7 @@ import { TABLEAU_COLUMNS } from '../domain/GameEngine'
 import { useBackgroundPreference } from '../hooks/useBackgroundPreference'
 import { useColumnGap } from '../hooks/useColumnGap'
 import { useGameEngine } from '../hooks/useGameEngine'
+import { useShortViewport } from '../hooks/useShortViewport'
 import { BACKGROUND_GRADIENTS } from '../lib/backgrounds'
 import { DropRegistryProvider } from '../lib/DropRegistryContext'
 import { CARD_HEIGHT, CARD_WIDTH, DRAW_FLIP_MS } from '../lib/layout'
@@ -22,9 +23,12 @@ const FOUNDATION_COUNT = 4
 // tableau columns, rather than a separately right-anchored group — that's
 // what makes them land in the same columns as the piles beneath them.
 const FOUNDATION_START_COLUMN = TABLEAU_COLUMNS - FOUNDATION_COUNT
-const TABLEAU_TOP = CARD_HEIGHT + 32
-const TABLEAU_GROWTH_BUDGET = 460
-const STAGE_HEIGHT = TABLEAU_TOP + TABLEAU_GROWTH_BUDGET
+// Vertical band the tableau fans into, below the top row. Columns squeeze
+// their card overlap to stay within it rather than growing past the board
+// and being clipped. Short on a landscape phone (board height is what caps
+// the card size there) and roomy everywhere with vertical space to spare.
+const TABLEAU_FAN_HEIGHT_ROOMY = 460
+const TABLEAU_FAN_HEIGHT_SHORT = 288
 const DEAL_STEP_MS = 55
 
 interface WinInfo {
@@ -58,6 +62,13 @@ export function Board() {
   const [isDragging, setIsDragging] = useState(false)
   const background = useBackgroundPreference()
   const columnGap = useColumnGap()
+  const shortViewport = useShortViewport()
+
+  // A short viewport gets a tighter top-row gap and a much shorter tableau
+  // band, so the whole board scales down less on a landscape phone.
+  const tableauTop = CARD_HEIGHT + (shortViewport ? 18 : 28)
+  const tableauFanHeight = shortViewport ? TABLEAU_FAN_HEIGHT_SHORT : TABLEAU_FAN_HEIGHT_ROOMY
+  const stageHeight = tableauTop + tableauFanHeight
 
   // Every column-like slot (tableau, foundations) sits on the same
   // left-to-right grid, one card-width-plus-gap apart, so a slot at
@@ -187,8 +198,8 @@ export function Board() {
           />
 
           <div className="flex min-h-0 w-full flex-1">
-            <ResponsiveStage baseWidth={stageWidth} baseHeight={STAGE_HEIGHT}>
-              <div className="relative" style={{ width: stageWidth, height: STAGE_HEIGHT }}>
+            <ResponsiveStage baseWidth={stageWidth} baseHeight={stageHeight}>
+              <div className="relative" style={{ width: stageWidth, height: stageHeight }}>
                 {engine.foundations.map((foundation, index) => (
                   <div
                     key={foundation.id}
@@ -207,11 +218,12 @@ export function Board() {
                   </div>
                 ))}
 
-                <div className="absolute left-0 flex" style={{ top: TABLEAU_TOP, gap: columnGap }}>
+                <div className="absolute left-0 flex" style={{ top: tableauTop, gap: columnGap }}>
                   {engine.tableau.map((column) => (
                     <TableauColumnView
                       key={column.id}
                       pile={column}
+                      maxHeight={tableauFanHeight}
                       onDrop={handleDrop}
                       onClickMove={handleClickMove}
                       onActivate={handleActivate}

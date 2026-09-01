@@ -121,9 +121,14 @@ export function Board() {
   // A plain click/tap: hand the card to the engine, which sends it (plus
   // any run resting on it) to its best legal spot — foundation first, then
   // a tableau column. There's no "selected" middle state any more.
+  //
+  // Deferred a frame so the pointer-up render that re-enables Motion
+  // `layout` on the tapped card (it's suppressed while pressed) commits
+  // first — Motion then has the card's resting position registered and can
+  // glide it to the destination via `layoutId` instead of snapping.
   const handleClickMove = useCallback(
     (card: Card) => {
-      engine.autoMove(card)
+      requestAnimationFrame(() => engine.autoMove(card))
     },
     [engine],
   )

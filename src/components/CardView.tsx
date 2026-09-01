@@ -365,7 +365,17 @@ export function CardView({
       }}
       initial={false}
       animate={{ scale: isPressed || followTransform ? 1.07 : 1 }}
-      transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.9 }}
+      transition={{
+        // The press-lift scale settles briskly.
+        default: { type: 'spring', stiffness: 420, damping: 34, mass: 0.9 },
+        // Cross-pile moves (`layoutId`) — a tap/auto-move sends a card the
+        // full width of the board, so this needs to read as a travelling
+        // glide, not the near-instant settle a fast spring gives. A
+        // drag-drop lands the card on the target already, so the same
+        // curve just eases the last stretch home. Soft, near-critically
+        // damped so it arrives without wobbling on the pile.
+        layout: { type: 'spring', stiffness: 150, damping: 26, mass: 1.1 },
+      }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}

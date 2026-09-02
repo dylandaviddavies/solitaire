@@ -52,10 +52,6 @@ export function StockPileView({ pile, onDraw }: StockPileViewProps) {
           card={top}
           pileId={pile.id}
           draggable={false}
-          // Clicking the stock is a draw, not a card pickup — skip the
-          // press lift so the top card turns straight over onto the waste
-          // instead of raising and snapping back first.
-          liftOnPress={false}
           style={{ top: 0, left: 0, zIndex: 0 }}
           onClickMove={onDraw}
         />

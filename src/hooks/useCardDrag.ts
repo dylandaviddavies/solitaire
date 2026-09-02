@@ -38,8 +38,6 @@ const ANCHOR_Y = 0
 
 interface UseCardDragOptions {
   draggable: boolean
-  /** Whether pressing should lift the card under the pointer. */
-  liftOnPress: boolean
   /** Board-space offset the card mounts at (its previous on-screen spot
    * relative to its new slot); eased to zero on mount with
    * `entryTransition`. */
@@ -71,7 +69,6 @@ const INSTANT: Transition = { duration: 0 }
  */
 export function useCardDrag({
   draggable,
-  liftOnPress,
   entryOffset,
   entryTransition,
   onPressStart,
@@ -90,9 +87,9 @@ export function useCardDrag({
   // factor on screen, so screen-pixel pointer deltas are divided by it.
   const stageScale = useStageScale()
 
-  const [isPressed, setIsPressed] = useState(false)
-  // Reactive mirror of `isDragging.current`, for anything that needs to
-  // re-render when a real drag begins/ends (the cursor).
+  // Reactive mirror of `isDragging.current` — the card only reacts (lifts,
+  // shows the grabbing cursor) once a *real* drag is under way, never on a
+  // plain press/tap.
   const [dragActive, setDragActive] = useState(false)
   const wasDragged = useRef(false)
   const isDragging = useRef(false)
@@ -149,7 +146,6 @@ export function useCardDrag({
   }, [])
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (liftOnPress) setIsPressed(true)
     // Grabbing a card mid-glide hands control to the pointer.
     stopEntry.current()
     // Capture unconditionally, even for a non-draggable card (the stock is
@@ -214,7 +210,6 @@ export function useCardDrag({
   }
 
   const onPointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
-    setIsPressed(false)
     setDragActive(false)
     rawTilt.set(0)
     onPressEnd?.()
@@ -241,8 +236,8 @@ export function useCardDrag({
     x,
     y,
     rotate,
-    isPressed,
-    /** A real drag (past the activation threshold) is in progress. */
+    /** A real drag (past the activation threshold) is in progress — false
+     * for a plain press that never became a drag. */
     isDragging: dragActive,
     anchor: { x: ANCHOR_X, y: ANCHOR_Y },
     /** True (once) if the gesture just ended was a drag, not a tap — call

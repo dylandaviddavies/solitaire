@@ -62,9 +62,6 @@ interface CardViewProps {
    * elsewhere: it mirrors that card's motion values exactly instead of
    * driving its own. */
   followTransform?: DragTransform
-  /** Whether a plain press should lift the card under the pointer. Default
-   * true; false where the click is really a button (the stock). */
-  liftOnPress?: boolean
 }
 
 // Viewer distance for the face-up flip's rotateY. Without a perspective
@@ -86,7 +83,6 @@ export function CardView({
   onPressStart,
   onPressEnd,
   followTransform,
-  liftOnPress = true,
 }: CardViewProps) {
   const cardBack = useCardBackPreference()
   const reduced = useReducedMotionValue()
@@ -107,7 +103,6 @@ export function CardView({
 
   const drag = useCardDrag({
     draggable,
-    liftOnPress,
     entryOffset: entry ? { dx: entry.dx, dy: entry.dy } : undefined,
     entryTransition,
     onPressStart,
@@ -118,9 +113,10 @@ export function CardView({
     onInvalidDrop: playWiggle,
     reducedMotion: reduced,
   })
-  const { isPressed, isDragging } = drag
-  const lifted = isPressed || Boolean(followTransform)
-  const dragging = isDragging || Boolean(followTransform)
+  // The card lifts / shows the grabbing cursor only once a real drag is
+  // running (or it's a follower in a run whose base is being dragged) —
+  // never on a plain click.
+  const lifted = drag.isDragging || Boolean(followTransform)
 
   // The head of a run that just landed here sparkles as it mounts — the
   // "it worked" counterpart to the refused-move wiggle. The ref stops a
@@ -136,10 +132,16 @@ export function CardView({
 
   // Shake this card when the engine turns its move down — a drop onto a
   // pile that can't take it, a tap with nowhere legal to go. Keyed on the
-  // rejection nonce so a repeat rejection replays it.
+  // rejection nonce so a repeat rejection replays it. The nonce seen at
+  // mount is ignored: a card can mount fresh (resurfacing on the waste as
+  // the card above it is drawn or played) while `lastMove.rejected` still
+  // points at it from an earlier refusal, and that stale shake mustn't
+  // replay — only a *new* rejection, which bumps the nonce, should fire.
   const rejectedNonce = useRejectedNonce(card.id)
+  const wiggledForNonce = useRef(rejectedNonce)
   useEffect(() => {
-    if (rejectedNonce === null) return
+    if (rejectedNonce === null || rejectedNonce === wiggledForNonce.current) return
+    wiggledForNonce.current = rejectedNonce
     playWiggle()
   }, [rejectedNonce, playWiggle])
 
@@ -164,7 +166,7 @@ export function CardView({
         originY: drag.anchor.y,
         zIndex: lifted ? 200 : style?.zIndex,
         // Plain pointer on hover — only a drag in progress shows the fist.
-        cursor: dragging ? 'grabbing' : 'pointer',
+        cursor: lifted ? 'grabbing' : 'pointer',
       }}
       // Squash-and-stretch: a grabbed card pinches taller/narrower then
       // springs to the lift scale; a card landing from a drag mounts

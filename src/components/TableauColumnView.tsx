@@ -36,6 +36,10 @@ export function TableauColumnView({
 }: TableauColumnViewProps) {
   const cards = pile.getCards()
   const [dragOrigin, setDragOrigin] = useState<DragOrigin | null>(null)
+  // `dragOrigin` is captured on first touch (so the transform is in hand),
+  // but the run only visually follows / lifts once a real drag begins —
+  // matching the base card, which no longer reacts to a plain press.
+  const [runActive, setRunActive] = useState(false)
 
   const offsets = tableauOffsets(
     cards.map((card) => card.faceUp),
@@ -56,7 +60,8 @@ export function TableauColumnView({
         // dragged, within the same valid run — it doesn't drive its own
         // position, it just mirrors the dragged card's motion values so
         // the whole run visually moves as one unit.
-        const isFollower = dragOrigin !== null && index > dragOrigin.index
+        const isFollower =
+          runActive && dragOrigin !== null && index > dragOrigin.index
         return (
           <CardView
             key={card.id}
@@ -67,10 +72,19 @@ export function TableauColumnView({
             onDrop={onDrop}
             onClickMove={onClickMove}
             onActivate={onActivate}
-            onDragStart={onDragStart}
-            onDragEnd={onDragEnd}
+            onDragStart={(c, pid) => {
+              setRunActive(true)
+              onDragStart(c, pid)
+            }}
+            onDragEnd={(offset) => {
+              setRunActive(false)
+              onDragEnd(offset)
+            }}
             onPressStart={(transform) => setDragOrigin({ index, transform })}
-            onPressEnd={() => setDragOrigin(null)}
+            onPressEnd={() => {
+              setDragOrigin(null)
+              setRunActive(false)
+            }}
             followTransform={isFollower ? dragOrigin!.transform : undefined}
           />
         )

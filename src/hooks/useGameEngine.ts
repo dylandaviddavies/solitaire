@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import { GameEngine } from '../domain/GameEngine'
 import { loadGameSnapshot, saveGameSnapshot } from '../lib/gameStorage'
+import { seedFromLocation, stripSeedFromLocation } from '../lib/seedLink'
 
 /**
  * Adapts the framework-agnostic `GameEngine` to React via
@@ -12,14 +13,28 @@ import { loadGameSnapshot, saveGameSnapshot } from '../lib/gameStorage'
 export function useGameEngine() {
   const engineRef = useRef<GameEngine | null>(null)
   if (!engineRef.current) {
-    const engine = new GameEngine()
-    // Resume a game left in progress (e.g. the page was refreshed) rather
-    // than the fresh one the constructor just dealt. Restoring also
-    // carries over any still-queued deal-in steps, so an interrupted deal
-    // animation picks up right where it left off instead of re-dealing
-    // from scratch or freezing half-dealt.
+    // A `?seed=` link deals that exact game. It wins over the saved game,
+    // *unless* the player already has that same deal in progress — then we
+    // resume it rather than restart their link.
+    const urlSeed = seedFromLocation()
     const saved = loadGameSnapshot()
-    if (saved) engine.restore(saved)
+    const engine = new GameEngine(urlSeed ?? undefined)
+
+    if (saved && (urlSeed === null || saved.seed === urlSeed)) {
+      // Resume a game left in progress (e.g. the page was refreshed).
+      // Restoring also carries over any still-queued deal-in steps, so an
+      // interrupted deal animation picks up where it left off instead of
+      // re-dealing from scratch or freezing half-dealt.
+      engine.restore(saved)
+    } else if (urlSeed !== null) {
+      // Fresh deal of the shared seed — persist it now so a refresh before
+      // the first move still lands here, not back on the previous save.
+      saveGameSnapshot(engine.snapshot())
+    }
+
+    // Once the shared deal is loaded, take the param out of the address
+    // bar so the player's own saved game drives any later refresh.
+    if (urlSeed !== null) stripSeedFromLocation()
     engineRef.current = engine
   }
   const engine = engineRef.current

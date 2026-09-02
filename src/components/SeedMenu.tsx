@@ -3,6 +3,9 @@ import { useRef, useState } from 'react'
 import { parseSeed, randomSeed } from '../domain/rng'
 import { formatClock } from '../hooks/useElapsedSeconds'
 import { useHighScores } from '../hooks/useHighScores'
+import { shareableSeedUrl } from '../lib/seedLink'
+
+const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 
 interface SeedMenuProps {
   open: boolean
@@ -13,29 +16,40 @@ interface SeedMenuProps {
 }
 
 /**
- * The popover hung off the toolbar's `#seed` chip: copy the current seed,
- * see its best run, or deal another seed (typed, pasted or rolled). This is
- * the only place seeds are managed now — deliberately out of the settings
- * modal, which is for persistent appearance/sound/motion prefs.
+ * The popover hung off the toolbar's `#seed` chip: share the current deal
+ * (a `?seed=` link, or the raw number), see its best run, or deal another
+ * seed (typed, pasted or rolled). This is the only place seeds are managed
+ * now — deliberately out of the settings modal, which is for persistent
+ * appearance/sound/motion prefs.
  */
 export function SeedMenu({ open, seed, onPlaySeed, onClose }: SeedMenuProps) {
   const bests = useHighScores()
   const seedBest = bests.bySeed[String(seed)]
   const field = useRef<HTMLInputElement>(null)
-  const [copied, setCopied] = useState(false)
+  const [copiedNumber, setCopiedNumber] = useState(false)
+  const [copiedLink, setCopiedLink] = useState(false)
 
   const play = () => {
     const parsed = parseSeed(field.current?.value ?? '')
     if (parsed !== null) onPlaySeed(parsed)
   }
-  const copy = () => {
-    navigator.clipboard?.writeText(String(seed)).then(
-      () => {
-        setCopied(true)
-        window.setTimeout(() => setCopied(false), 1200)
-      },
-      () => {},
-    )
+
+  const flash = (set: (v: boolean) => void) => {
+    set(true)
+    window.setTimeout(() => set(false), 1400)
+  }
+  const copyNumber = () => {
+    navigator.clipboard?.writeText(String(seed)).then(() => flash(setCopiedNumber), () => {})
+  }
+  const shareLink = () => {
+    const url = shareableSeedUrl(seed)
+    if (canShare) {
+      navigator
+        .share({ title: 'Klondike Solitaire', text: `Try this deal — seed #${seed}`, url })
+        .catch(() => {})
+      return
+    }
+    navigator.clipboard?.writeText(url).then(() => flash(setCopiedLink), () => {})
   }
 
   return (
@@ -57,14 +71,19 @@ export function SeedMenu({ open, seed, onPlaySeed, onClose }: SeedMenuProps) {
               This deal
             </p>
             <div className="mt-1 flex items-center justify-between gap-2">
-              <span className="font-mono text-lg font-bold tabular-nums">#{seed}</span>
               <button
                 type="button"
-                onClick={copy}
-                className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600 transition-colors hover:bg-slate-200"
+                onClick={copyNumber}
+                title="Copy the seed number"
+                className="font-mono text-lg font-bold tabular-nums text-slate-800 transition-colors hover:text-violet-600"
               >
-                {copied ? 'Copied ✓' : 'Copy'}
+                #{seed}
               </button>
+              {copiedNumber && (
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600">
+                  Number copied ✓
+                </span>
+              )}
             </div>
             {seedBest && (
               <p className="mt-1.5 text-xs text-slate-500">
@@ -72,6 +91,13 @@ export function SeedMenu({ open, seed, onPlaySeed, onClose }: SeedMenuProps) {
                 moves
               </p>
             )}
+            <button
+              type="button"
+              onClick={shareLink}
+              className="mt-2.5 w-full rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 transition-colors hover:bg-slate-200 active:scale-95"
+            >
+              {copiedLink ? 'Link copied ✓' : canShare ? 'Share deal' : 'Copy link'}
+            </button>
 
             <div className="my-3 h-px bg-slate-200" />
 

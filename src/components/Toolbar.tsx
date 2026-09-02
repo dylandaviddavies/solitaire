@@ -68,8 +68,8 @@ export function Toolbar({
           <div
             className={`flex items-center rounded-full bg-white/15 font-semibold tabular-nums backdrop-blur-sm ${
               dense
-                ? 'gap-2 px-2.5 py-0.5 text-[11px]'
-                : 'gap-2.5 px-3 py-1 text-xs sm:gap-4 sm:px-4 sm:py-1.5 sm:text-sm'
+                ? 'gap-2 px-2.5 py-1 text-[11px]'
+                : 'gap-2.5 px-3 py-2 text-xs sm:gap-4 sm:px-4 sm:py-2.5 sm:text-sm'
             }`}
           >
             <span>
@@ -79,15 +79,15 @@ export function Toolbar({
               👣 <span className="inline-block min-w-[2ch] text-left">{movesCount}</span>
             </span>
           </div>
-          <div className="relative">
+          <div className="relative flex">
             <button
               type="button"
               onClick={() => setSeedMenuOpen((v) => !v)}
               title="Deal seed — copy or change"
               aria-haspopup="dialog"
               aria-expanded={seedMenuOpen}
-              className={`rounded-full bg-white/15 font-semibold backdrop-blur-sm transition-colors hover:bg-white/25 ${
-                dense ? 'px-2 py-0.5 text-[10px]' : 'px-3 py-1 text-xs sm:py-1.5'
+              className={`rounded-full bg-white/15 font-semibold tabular-nums backdrop-blur-sm transition-colors hover:bg-white/25 ${
+                dense ? 'px-2.5 py-1 text-[11px]' : 'px-3 py-2 text-xs sm:py-2.5 sm:text-sm'
               }`}
             >
               #{seed}

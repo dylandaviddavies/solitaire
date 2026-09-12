@@ -43,7 +43,6 @@ interface CardViewProps {
   /** A plain click/tap (no drag): send this card to its best legal
    * destination. */
   onClickMove?: (card: Card) => void
-  onActivate?: (card: Card) => void
   /** Omitted for cards that can never be dragged (the stock's face-down
    * top, or a "peek" card rendered just to fill a pile in visually). */
   onDragStart?: (card: Card, pileId: string) => void
@@ -77,7 +76,6 @@ export function CardView({
   style,
   onDrop,
   onClickMove,
-  onActivate,
   onDragStart,
   onDragEnd,
   onPressStart,
@@ -183,10 +181,6 @@ export function CardView({
         event.stopPropagation()
         if (drag.consumeWasDrag()) return
         onClickMove?.(card)
-      }}
-      onDoubleClick={(event: React.MouseEvent) => {
-        event.stopPropagation()
-        onActivate?.(card)
       }}
     >
       {/* Radius matches the card faces so the animated box-shadow traces

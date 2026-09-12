@@ -290,16 +290,6 @@ export function Board() {
     [engine, runMutation, playMoveSound],
   )
 
-  const handleActivate = useCallback(
-    (card: Card) => {
-      const r = runMutation(() => {
-        if (!engine.sendToFoundation(card)) rejectCard(card.id)
-      })
-      playMoveSound(r)
-    },
-    [engine, runMutation, rejectCard, playMoveSound],
-  )
-
   const handleDragStart = useCallback(() => {
     setIsDragging(true)
     playSound('pickup')
@@ -391,7 +381,6 @@ export function Board() {
                       pile={foundation}
                       onDrop={handleDrop}
                       onClickMove={handleClickMove}
-                      onActivate={handleActivate}
                       onDragStart={handleDragStart}
                       onDragEnd={handleDragEnd}
                       isDropTarget={isDropTarget}
@@ -407,7 +396,6 @@ export function Board() {
                       maxHeight={tableauFanHeight}
                       onDrop={handleDrop}
                       onClickMove={handleClickMove}
-                      onActivate={handleActivate}
                       onDragStart={handleDragStart}
                       onDragEnd={handleDragEnd}
                       isDropTarget={isDropTarget}
@@ -425,7 +413,6 @@ export function Board() {
                     justDrawnId={justDrawnId}
                     onDrop={handleDrop}
                     onClickMove={handleClickMove}
-                    onActivate={handleActivate}
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
                     isDropTarget={isDropTarget}

@@ -19,7 +19,6 @@ export function FoundationSlotView({
   pile,
   onDrop,
   onClickMove,
-  onActivate,
   onDragStart,
   onDragEnd,
   isDropTarget,
@@ -66,7 +65,6 @@ export function FoundationSlotView({
           style={{ top: 0, left: 0, zIndex: 0 }}
           onDrop={onDrop}
           onClickMove={onClickMove}
-          onActivate={onActivate}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
         />

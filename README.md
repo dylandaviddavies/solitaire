@@ -17,8 +17,7 @@ Then open the printed local URL. `npm run build` produces a production build in 
 
 ## How to play
 
-- **Drag** a card onto a valid pile, or **click** a card to select it and then **click** the pile you want to move it to.
-- **Double-click** a card to send it straight to a foundation if it fits.
+- **Drag** a card onto a valid pile, or simply **click** a card to send it to its best legal spot — a foundation if it fits, otherwise a tableau column.
 - Click the stock pile to draw a card; once it's empty, click it again to recycle the waste pile.
 - **Undo** reverses the last action. **Auto Finish** appears once every card is face up and can safely be played out automatically.
 

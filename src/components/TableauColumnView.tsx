@@ -29,7 +29,6 @@ export function TableauColumnView({
   maxHeight,
   onDrop,
   onClickMove,
-  onActivate,
   onDragStart,
   onDragEnd,
   isDropTarget,
@@ -71,7 +70,6 @@ export function TableauColumnView({
             style={{ top: offsets[index], left: 0, zIndex: index }}
             onDrop={onDrop}
             onClickMove={onClickMove}
-            onActivate={onActivate}
             onDragStart={(c, pid) => {
               setRunActive(true)
               onDragStart(c, pid)

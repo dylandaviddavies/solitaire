@@ -15,7 +15,6 @@ export function WastePileView({
   justDrawnId,
   onDrop,
   onClickMove,
-  onActivate,
   onDragStart,
   onDragEnd,
 }: WastePileViewProps) {
@@ -54,7 +53,6 @@ export function WastePileView({
           style={{ top: 0, left: 0, zIndex: 0 }}
           onDrop={onDrop}
           onClickMove={onClickMove}
-          onActivate={onActivate}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
         />

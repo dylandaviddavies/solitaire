@@ -7,7 +7,6 @@ export interface PileInteractionProps {
    * straight to its best legal destination. No target pile to pick — the
    * engine decides. */
   onClickMove: (card: Card) => void
-  onActivate: (card: Card) => void
   /** Announces that a real drag (past the movement threshold) has started
    * on `card`, so Board can show the drop-zone hint outlines. */
   onDragStart: (card: Card, pileId: string) => void

@@ -94,6 +94,11 @@ export function useCardDrag({
   const [dragActive, setDragActive] = useState(false)
   const wasDragged = useRef(false)
   const isDragging = useRef(false)
+  // The one pointer this gesture belongs to, once claimed — a second
+  // finger touching the same card mid-press/drag is ignored entirely
+  // rather than feeding its move/up events into the first pointer's
+  // in-progress gesture (see the guards in onPointerMove/onPointerEnd).
+  const activePointerId = useRef<number | null>(null)
   // Measured at grab time: the card's on-screen rest left/top and its
   // actual rendered width (not the logical constant — the board may be
   // scaled), so every pointer position converts to a translate offset.
@@ -154,6 +159,11 @@ export function useCardDrag({
     // otherwise carry the pointerup onto a different element, leaving this
     // card stuck lifted. Capturing keeps every move/up/cancel on us.
     event.currentTarget.setPointerCapture(event.pointerId)
+    // A second pointer pressing this card while another already claimed it
+    // is ignored outright — capturing above still keeps its own up/cancel
+    // off other elements, it just never reaches the gesture below.
+    if (activePointerId.current !== null) return
+    activePointerId.current = event.pointerId
     if (!draggable) return
     // Register the run with the parent now, on first touch, so its lower
     // cards are hooked onto these motion values before any movement.
@@ -167,6 +177,7 @@ export function useCardDrag({
   }
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerId !== activePointerId.current) return
     if (!restRect.current) return
 
     let justStarted = false
@@ -213,6 +224,8 @@ export function useCardDrag({
   }
 
   const onPointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerId !== activePointerId.current) return
+    activePointerId.current = null
     setDragActive(false)
     rawTilt.set(0)
     onPressEnd?.()

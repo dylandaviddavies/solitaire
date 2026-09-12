@@ -207,9 +207,13 @@ export class GameEngine {
   // Player actions
   // ---------------------------------------------------------------------
 
-  /** Draws a card to the waste, or recycles the waste when the stock is empty. */
+  /** Draws a card to the waste, or recycles the waste when the stock is
+   * empty. With both piles empty there is nothing to draw *or* recycle, so
+   * the click is a no-op — it mustn't count as a move or pollute the undo
+   * history with a do-nothing RecycleMove. */
   draw(): void {
     if (this.stock.isEmpty) {
+      if (this.waste.isEmpty) return
       this.run(new RecycleMove(this.stock, this.waste))
       return
     }

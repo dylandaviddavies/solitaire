@@ -327,6 +327,9 @@ export function Board() {
 
   const handleDraw = useCallback(() => {
     const recycling = engine.stock.isEmpty
+    // Both piles empty: the engine treats the click as a no-op, so don't
+    // play the shuffle flourish/sound for a recycle that never happened.
+    if (recycling && engine.waste.isEmpty) return
     runMutation(() => engine.draw())
     if (recycling) setRecycleNonce((n) => n + 1)
     playSound(recycling ? 'shuffle' : 'draw')

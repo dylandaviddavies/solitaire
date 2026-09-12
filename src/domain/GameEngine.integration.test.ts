@@ -193,6 +193,25 @@ describe('GameEngine — full-game integration', () => {
     expect([...afterRecycle].sort()).toEqual([...beforeRecycle].sort())
   })
 
+  it('treats a draw with an empty stock and empty waste as a no-op', () => {
+    const snapshot = emptySnapshot()
+    // Every card parked legally in one column so restore() accepts a full
+    // deck — nothing left to draw or recycle.
+    const rest: SerializedCard[] = []
+    for (const suit of ALL_SUITS) {
+      for (const rank of RANKS) rest.push(card(rank, suit, true))
+    }
+    snapshot.tableau[0] = rest
+
+    const engine = new GameEngine()
+    expect(engine.restore(snapshot)).toBe(true)
+
+    engine.draw()
+
+    expect(engine.movesCount).toBe(0)
+    expect(engine.canUndo).toBe(false)
+  })
+
   it('moves a run between columns to uncover a face-down card', () => {
     const snapshot = emptySnapshot()
     // Column 0: a face-down Ace of Spades trapped under a red Two.

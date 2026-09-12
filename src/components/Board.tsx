@@ -318,6 +318,16 @@ export function Board() {
   )
 
   const handleDraw = useCallback(() => {
+    // A draw's flip or a recycle's flourish is still playing: the card
+    // mid-animation is the waste's "top" CardView, keyed by its id: a
+    // second draw right now would demote it to the "under" slot — a
+    // different fixed JSX position — so React would unmount that
+    // in-flight instance and mount a fresh, un-animated one in its place,
+    // aborting the glide/flip partway and popping the card into its rest
+    // spot instead of finishing the animation. Blocking re-entry until the
+    // transition clears (see the `justDrawnId`/`recycleNonce` effects)
+    // keeps every draw's animation intact.
+    if (justDrawnId !== null || recycleNonce !== 0) return
     const recycling = engine.stock.isEmpty
     // Both piles empty: the engine treats the click as a no-op, so don't
     // play the shuffle flourish/sound for a recycle that never happened.
@@ -325,7 +335,7 @@ export function Board() {
     runMutation(() => engine.draw())
     if (recycling) setRecycleNonce((n) => n + 1)
     playSound(recycling ? 'shuffle' : 'draw')
-  }, [engine, runMutation])
+  }, [engine, runMutation, justDrawnId, recycleNonce])
 
   // Retire the recycle-sweep nodes once the flourish has finished playing.
   useEffect(() => {

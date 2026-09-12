@@ -1,15 +1,8 @@
-import { Suit } from '../domain/Card'
+import { SUIT_SYMBOL } from '../domain/Card'
 import type { FoundationPile } from '../domain/piles/FoundationPile'
 import type { PileInteractionProps } from '../lib/types'
 import { CardView } from './CardView'
 import { PileSlot } from './PileSlot'
-
-const SUIT_GLYPH: Record<Suit, string> = {
-  [Suit.Hearts]: '♥',
-  [Suit.Diamonds]: '♦',
-  [Suit.Clubs]: '♣',
-  [Suit.Spades]: '♠',
-}
 
 interface FoundationSlotViewProps extends PileInteractionProps {
   pile: FoundationPile
@@ -39,7 +32,7 @@ export function FoundationSlotView({
       dropTarget={isDropTarget(pile.id)}
       placeholder={
         <div className="flex h-full w-full items-center justify-center text-3xl text-white/40">
-          {SUIT_GLYPH[pile.suit]}
+          {SUIT_SYMBOL[pile.suit]}
         </div>
       }
     >

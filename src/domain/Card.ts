@@ -31,7 +31,10 @@ const SUIT_COLOR: Record<Suit, Color> = {
   [Suit.Spades]: Color.Black,
 }
 
-const SUIT_SYMBOL: Record<Suit, string> = {
+/** Exported so any renderer needing a suit's glyph without a `Card`
+ * instance in hand (e.g. an empty foundation slot, which only has a suit)
+ * can use this directly instead of keeping its own copy. */
+export const SUIT_SYMBOL: Record<Suit, string> = {
   [Suit.Hearts]: '♥',
   [Suit.Diamonds]: '♦',
   [Suit.Clubs]: '♣',

@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import { parseSeed, randomSeed } from '../domain/rng'
 import { formatClock } from '../hooks/useElapsedSeconds'
 import { useHighScores } from '../hooks/useHighScores'
+import { COPY_FLASH_MS } from '../lib/animation'
 import { shareableSeedUrl } from '../lib/seedLink'
 
 const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
@@ -36,7 +37,7 @@ export function SeedMenu({ open, seed, onPlaySeed, onClose }: SeedMenuProps) {
 
   const flash = (set: (v: boolean) => void) => {
     set(true)
-    window.setTimeout(() => set(false), 1400)
+    window.setTimeout(() => set(false), COPY_FLASH_MS)
   }
   const copyNumber = () => {
     navigator.clipboard?.writeText(String(seed)).then(() => flash(setCopiedNumber), () => {})

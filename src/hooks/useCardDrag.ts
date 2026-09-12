@@ -15,6 +15,7 @@ import {
   SNAP_BACK,
   SWAY_MAX_DEG,
   SWAY_SPRING,
+  SWAY_VELOCITY_GAIN,
 } from '../lib/animation'
 import { useDropRegistry } from '../lib/DropRegistryContext'
 import { useStageScale } from '../lib/StageScaleContext'
@@ -204,7 +205,9 @@ export function useCardDrag({
     }
 
     if (!reducedMotion) {
-      rawTilt.set(clamp((event.clientX - lastClientX.current) * 2.2, -SWAY_MAX_DEG, SWAY_MAX_DEG))
+      rawTilt.set(
+        clamp((event.clientX - lastClientX.current) * SWAY_VELOCITY_GAIN, -SWAY_MAX_DEG, SWAY_MAX_DEG),
+      )
     }
     lastClientX.current = event.clientX
   }

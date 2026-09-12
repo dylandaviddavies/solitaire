@@ -8,7 +8,13 @@ import { useGameEngine } from '../hooks/useGameEngine'
 import { useIsNarrowViewport } from '../hooks/useIsNarrowViewport'
 import { useReducedMotion } from '../hooks/useReducedMotion'
 import { useShortViewport } from '../hooks/useShortViewport'
-import { DRAW_FLIP_MS, RECYCLE_TOTAL_MS } from '../lib/animation'
+import {
+  AUTO_COMPLETE_STEP_MS,
+  DEAL_STEP_MS,
+  DRAW_FLIP_CLEAR_BUFFER_MS,
+  DRAW_FLIP_MS,
+  RECYCLE_TOTAL_MS,
+} from '../lib/animation'
 import { BACKGROUND_GRADIENTS } from '../lib/backgrounds'
 import { DropRegistryProvider } from '../lib/DropRegistryContext'
 import { highScores } from '../lib/highScores'
@@ -45,7 +51,6 @@ const FOUNDATION_START_COLUMN = TABLEAU_COLUMNS - FOUNDATION_COUNT
 // the card size there) and roomy everywhere with vertical space to spare.
 const TABLEAU_FAN_HEIGHT_ROOMY = 460
 const TABLEAU_FAN_HEIGHT_SHORT = 288
-const DEAL_STEP_MS = 45
 
 interface WinInfo {
   movesMade: number
@@ -241,7 +246,7 @@ export function Board() {
       window.clearTimeout(timer)
       timer = window.setTimeout(() => {
         setJustDrawnId((current) => (current === cardId ? null : current))
-      }, DRAW_FLIP_MS + 50)
+      }, DRAW_FLIP_MS + DRAW_FLIP_CLEAR_BUFFER_MS)
     })
     return () => {
       window.clearTimeout(timer)
@@ -349,7 +354,7 @@ export function Board() {
       const r = runMutation(() => engine.autoCompleteStep())
       if (r.moved) {
         playSound('foundation', r.foundationsBefore)
-        window.setTimeout(tick, 78)
+        window.setTimeout(tick, AUTO_COMPLETE_STEP_MS)
       }
     }
     tick()

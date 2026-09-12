@@ -18,6 +18,9 @@ export const DRAW_FLIP = {
   // genuinely crossing the gap.
   ease: [0.5, 0, 0.2, 1],
 } as const
+/** Grace period after `DRAW_FLIP_MS` before `justDrawnId` is cleared —
+ * covers the gap between the animation finishing and the timeout firing. */
+export const DRAW_FLIP_CLEAR_BUFFER_MS = 50
 
 // --- The waste → stock recycle flourish ---------------------------------
 /** When the stock runs dry and the waste is turned back over to refill it,
@@ -79,12 +82,23 @@ export const FLIP_ROLL_SPRING = { type: 'spring', stiffness: 430, damping: 26 } 
 export const SWAY_MAX_DEG = 16
 export const SWAY_SPRING = { stiffness: 90, damping: 14, mass: 1.1 } as const
 
+// --- Copy-to-clipboard feedback -------------------------------------------
+/** How long the "Copied ✓" flash stays up on the seed menu's copy buttons. */
+export const COPY_FLASH_MS = 1400
+
 // --- Tap / drop rejection wiggle -----------------------------------------
 /** A quick decaying rotation (degrees) — a nudge, not a shake. Starts and
  * ends at exactly 0 so it sums onto an element's existing rotation with no
  * residual tilt. */
 export const WIGGLE_KEYFRAMES = [0, -3.5, 2.5, -1.5, 0.5, 0]
 export const WIGGLE_TRANSITION = { duration: 0.45, ease: 'easeOut' } as const
+
+// --- Cascades: the opening deal and Auto Finish --------------------------
+/** Delay between each card of the opening deal-in. */
+export const DEAL_STEP_MS = 45
+/** Delay between each card Auto Finish sends home — slower than the deal
+ * so each foundation landing (and its sound) reads as its own beat. */
+export const AUTO_COMPLETE_STEP_MS = 78
 
 // --- Drag activation ----------------------------------------------------
 /** A drag begins the instant the pointer makes a decisive pull past
@@ -95,3 +109,6 @@ export const WIGGLE_TRANSITION = { duration: 0.45, ease: 'easeOut' } as const
 export const DRAG_ACTIVATE_MS = 80
 export const DRAG_START_THRESHOLD_PX = 5
 export const DRAG_COMMIT_PX = 12
+/** How strongly horizontal pointer speed (px/frame) drives the sway tilt,
+ * before it's clamped to `SWAY_MAX_DEG`. */
+export const SWAY_VELOCITY_GAIN = 2.2

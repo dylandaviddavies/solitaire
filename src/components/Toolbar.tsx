@@ -4,6 +4,7 @@ import { formatClock, useElapsedSeconds } from '../hooks/useElapsedSeconds'
 import { playSound } from '../lib/sound'
 import { SeedMenu } from './SeedMenu'
 import { SettingsPanel } from './SettingsPanel'
+import favicon from '../../public/favicon.svg'
 
 interface ToolbarProps {
   movesCount: number
@@ -54,7 +55,7 @@ export function Toolbar({
         }`}
       >
         <div className={`flex items-center ${dense ? 'gap-1.5' : 'gap-1.5 sm:gap-2'}`}>
-          <span className={dense ? 'text-lg' : 'text-xl sm:text-2xl'}>🃏</span>
+          <img alt="Solitaire" src={favicon} className="size-6" />
           <h1
             className={`font-bold uppercase tracking-wide drop-shadow-sm ${
               dense ? 'sr-only' : 'text-lg sm:text-2xl'

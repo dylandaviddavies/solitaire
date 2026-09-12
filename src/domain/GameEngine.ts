@@ -32,14 +32,14 @@ export interface SerializedCard {
 /** Everything needed to resume a game exactly where the player left off:
  * every pile's contents (bottom to top), the still-to-be-dealt queue (in
  * case a save lands mid deal-in animation), and the running move
- * count/start time so the toolbar's counters stay correct. Undo history is
+ * count/play time so the toolbar's counters stay correct. Undo history is
  * deliberately not included — resuming with a clean slate for "undo" is a
  * reasonable trade for not having to serialize the move-command stack.
  * This type (and `snapshot`/`restore` below) is the engine's only
  * awareness of persistence; it has no idea *where* a snapshot is stored —
  * see `lib/gameStorage.ts` for the localStorage adapter. */
 export interface GameSnapshot {
-  version: 2
+  version: 3
   /** The seed that dealt this game — carried through so a resumed game is
    * still attributed to the right per-seed high score. */
   seed: number
@@ -49,7 +49,10 @@ export interface GameSnapshot {
   tableau: SerializedCard[][]
   dealQueue: DealStep[]
   movesMade: number
-  startedAt: number
+  /** Accumulated *play* time, not a wall-clock start timestamp — so a game
+   * resumed days later hasn't "taken" days, and per-seed best times stay
+   * comparable. The clock only runs while the game is open and unfinished. */
+  playedMs: number
 }
 
 interface GameEvents {
@@ -91,7 +94,12 @@ export class GameEngine {
   private history: Move[] = []
   private dealQueue: DealStep[] = []
   private movesMade = 0
-  private startedAt = 0
+  /** The play clock: time banked while the clock was previously running,
+   * plus the wall-clock moment it last started — `null` while paused (tab
+   * hidden, or the game is won). Wall time only ever enters `elapsedMs`
+   * through a running `playingSince`, so closed-tab time never counts. */
+  private playedMsBase = 0
+  private playingSince: number | null = null
   private seedValue = 0
   private wonEmitted = false
   /** Bumped on every mutation, including ones that don't change movesMade
@@ -128,7 +136,8 @@ export class GameEngine {
 
     this.history = []
     this.movesMade = 0
-    this.startedAt = Date.now()
+    this.playedMsBase = 0
+    this.playingSince = Date.now()
     this.wonEmitted = false
     this.dealQueue = this.buildDealPlan()
     this.emitChange()
@@ -189,8 +198,24 @@ export class GameEngine {
     return this.stateVersion
   }
 
-  get startedAtMs(): number {
-    return this.startedAt
+  /** Play time so far — the banked total plus the current running stretch. */
+  get elapsedMs(): number {
+    return this.playedMsBase + (this.playingSince !== null ? Date.now() - this.playingSince : 0)
+  }
+
+  /** Banks the running stretch and stops the clock. Idempotent — used when
+   * the tab is hidden and, permanently, once the game is won. */
+  pauseClock(): void {
+    if (this.playingSince === null) return
+    this.playedMsBase += Date.now() - this.playingSince
+    this.playingSince = null
+  }
+
+  /** Restarts the clock, unless it's already running or the game is over
+   * (a won board coming back into view shouldn't tick again). */
+  resumeClock(): void {
+    if (this.playingSince !== null || this.isWon()) return
+    this.playingSince = Date.now()
   }
 
   isWon(): boolean {
@@ -351,7 +376,7 @@ export class GameEngine {
     const serialize = (cards: readonly Card[]): SerializedCard[] =>
       cards.map((card) => ({ suit: card.suit, rank: card.rank, faceUp: card.faceUp }))
     return {
-      version: 2,
+      version: 3,
       seed: this.seedValue,
       stock: serialize(this.stock.getCards()),
       waste: serialize(this.waste.getCards()),
@@ -359,7 +384,7 @@ export class GameEngine {
       tableau: this.tableau.map((t) => serialize(t.getCards())),
       dealQueue: this.dealQueue.map((step) => ({ ...step })),
       movesMade: this.movesMade,
-      startedAt: this.startedAt,
+      playedMs: this.elapsedMs,
     }
   }
 
@@ -400,11 +425,14 @@ export class GameEngine {
     this.dealQueue = snapshot.dealQueue.map((step) => ({ ...step }))
     this.history = []
     this.movesMade = snapshot.movesMade
-    this.startedAt = snapshot.startedAt
     this.seedValue = snapshot.seed
     // Set directly rather than letting emitChange() discover it, so a
     // restored already-won game doesn't re-fire the 'won' celebration.
     this.wonEmitted = this.isWon()
+    // Resume the play clock from the banked total — permanently stopped
+    // for a game that was already won.
+    this.playedMsBase = Math.max(0, snapshot.playedMs)
+    this.playingSince = this.wonEmitted ? null : Date.now()
     this.emitChange()
     return true
   }
@@ -428,7 +456,10 @@ export class GameEngine {
     this.events.emit('change', { movesMade: this.movesMade })
     if (!this.wonEmitted && this.isWon()) {
       this.wonEmitted = true
-      this.events.emit('won', { movesMade: this.movesMade, elapsedMs: Date.now() - this.startedAt })
+      // Bank the final stretch first so the emitted time is exact and the
+      // clock never ticks past the win.
+      this.pauseClock()
+      this.events.emit('won', { movesMade: this.movesMade, elapsedMs: this.elapsedMs })
     }
   }
 }

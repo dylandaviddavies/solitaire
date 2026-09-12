@@ -28,15 +28,16 @@ function isDealStepArray(value: unknown): value is GameSnapshot['dealQueue'] {
 function isGameSnapshot(value: unknown): value is GameSnapshot {
   if (!value || typeof value !== 'object') return false
   const v = value as Record<string, unknown>
-  // v1 saves (pre-seeds) don't shape-check here; they simply fall back to
-  // a fresh game on the next load, which is a fine one-time trade.
-  if (v.version !== 2) return false
+  // Older saves (v1 pre-seeds, v2 wall-clock `startedAt`) don't shape-check
+  // here; they simply fall back to a fresh game on the next load, which is
+  // a fine one-time trade.
+  if (v.version !== 3) return false
   if (typeof v.seed !== 'number') return false
   if (!isCardArray(v.stock) || !isCardArray(v.waste)) return false
   if (!Array.isArray(v.foundations) || !v.foundations.every(isCardArray)) return false
   if (!Array.isArray(v.tableau) || !v.tableau.every(isCardArray)) return false
   if (!isDealStepArray(v.dealQueue)) return false
-  return typeof v.movesMade === 'number' && typeof v.startedAt === 'number'
+  return typeof v.movesMade === 'number' && typeof v.playedMs === 'number'
 }
 
 /** Reads a previously-saved game, or `null` if there isn't one (first

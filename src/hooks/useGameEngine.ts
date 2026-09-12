@@ -55,5 +55,22 @@ export function useGameEngine() {
   // state rather than losing whatever happened since the last save.
   useEffect(() => engine.on('change', () => saveGameSnapshot(engine.snapshot())), [engine])
 
+  // The play clock only runs while the game is actually in front of the
+  // player: pause it when the tab is hidden (and save, so the banked time
+  // survives the tab being closed from the background) and resume it when
+  // the tab comes back.
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        engine.pauseClock()
+        saveGameSnapshot(engine.snapshot())
+      } else {
+        engine.resumeClock()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [engine])
+
   return engine
 }

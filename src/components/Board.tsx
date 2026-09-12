@@ -110,6 +110,8 @@ export function Board() {
   const stageWidth = columnLeft(TABLEAU_COLUMNS - 1) + CARD_WIDTH
   const foundationLeft = (index: number) => columnLeft(FOUNDATION_START_COLUMN + index)
 
+  const getElapsedMs = useCallback(() => engine.elapsedMs, [engine])
+
   const rejectCard = useCallback((cardId: string) => {
     setLastMove((prev) => ({
       ...prev,
@@ -357,7 +359,7 @@ export function Board() {
         >
           <Toolbar
             movesCount={engine.movesCount}
-            startedAtMs={engine.startedAtMs}
+            getElapsedMs={getElapsedMs}
             seed={seed}
             won={Boolean(winInfo)}
             canUndo={engine.canUndo}

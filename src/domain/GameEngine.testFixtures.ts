@@ -21,7 +21,7 @@ export const asColumn = (cards: SerializedCard[]): SerializedCard[] =>
 
 export function emptySnapshot(): GameSnapshot {
   return {
-    version: 2,
+    version: 3,
     seed: 1,
     stock: [],
     waste: [],
@@ -29,7 +29,7 @@ export function emptySnapshot(): GameSnapshot {
     tableau: [[], [], [], [], [], [], []],
     dealQueue: [],
     movesMade: 0,
-    startedAt: Date.now(),
+    playedMs: 0,
   }
 }
 
@@ -69,8 +69,10 @@ export function winnableDealSnapshot(): GameSnapshot {
  */
 export function autoCompletableSnapshot(): GameSnapshot {
   const snapshot = emptySnapshot()
-  snapshot.tableau = ALL_SUITS.map((suit) =>
-    [...RANKS].reverse().map((rank) => card(rank, suit, true)),
-  )
+  // Fill the first four of the seven columns, one per suit — restore()
+  // insists on the full board's worth of pile arrays either way.
+  ALL_SUITS.forEach((suit, i) => {
+    snapshot.tableau[i] = [...RANKS].reverse().map((rank) => card(rank, suit, true))
+  })
   return snapshot
 }

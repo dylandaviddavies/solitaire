@@ -6,7 +6,9 @@ import { SettingsPanel } from './SettingsPanel'
 
 interface ToolbarProps {
   movesCount: number
-  startedAtMs: number
+  /** Live play-time read off the engine's clock (excludes time the tab was
+   * closed or hidden). */
+  getElapsedMs: () => number
   seed: number
   won: boolean
   canUndo: boolean
@@ -27,7 +29,7 @@ const buttonDense = `${buttonCommon} px-2.5 py-1 text-[11px]`
 
 export function Toolbar({
   movesCount,
-  startedAtMs,
+  getElapsedMs,
   seed,
   won,
   canUndo,
@@ -37,7 +39,7 @@ export function Toolbar({
   onUndo,
   onAutoComplete,
 }: ToolbarProps) {
-  const elapsed = useElapsedSeconds(startedAtMs, !won)
+  const elapsed = useElapsedSeconds(getElapsedMs, !won)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [seedMenuOpen, setSeedMenuOpen] = useState(false)
 

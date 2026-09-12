@@ -249,6 +249,26 @@ describe('GameEngine — full-game integration', () => {
     expect(engine.foundations.some((f) => f.top?.rank === 'A' && f.top.suit === Suit.Spades)).toBe(true)
   })
 
+  it('resumes the play clock from the banked total, not wall-clock time', () => {
+    const snapshot = winnableDealSnapshot()
+    snapshot.playedMs = 5000
+
+    const engine = new GameEngine()
+    expect(engine.restore(snapshot)).toBe(true)
+
+    // Whatever wall-clock time passed before the restore, elapsed play
+    // time picks up from the saved 5s.
+    expect(engine.elapsedMs).toBeGreaterThanOrEqual(5000)
+    expect(engine.elapsedMs).toBeLessThan(6000)
+
+    // Pausing freezes it; resuming carries on from the banked total.
+    engine.pauseClock()
+    const frozen = engine.elapsedMs
+    expect(engine.elapsedMs).toBe(frozen)
+    engine.resumeClock()
+    expect(engine.elapsedMs).toBeGreaterThanOrEqual(frozen)
+  })
+
   it('refuses a snapshot with a deal step outside the tableau', () => {
     const snapshot = winnableDealSnapshot()
     snapshot.dealQueue = [{ column: 99, faceUp: true }]

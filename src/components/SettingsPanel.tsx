@@ -98,6 +98,12 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
             >
               Done
             </button>
+            {/* Which deploy this installed copy is running — updates land
+              * automatically (see src/pwa.ts), this is how you verify one
+              * did. */}
+            <p className="mt-3 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              Build {__BUILD_ID__}
+            </p>
           </motion.div>
         </>
       )}

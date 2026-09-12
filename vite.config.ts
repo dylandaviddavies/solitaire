@@ -1,11 +1,23 @@
+import { execSync } from 'node:child_process'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Stamped into the bundle and shown in the settings panel, so an
+// installed PWA can be checked against the latest deploy at a glance.
+const buildId = (() => {
+  try {
+    return execSync('git rev-parse --short HEAD').toString().trim()
+  } catch {
+    return 'dev'
+  }
+})()
+
 // https://vite.dev/config/
 export default defineConfig({
   base: '/solitaire/',
+  define: { __BUILD_ID__: JSON.stringify(buildId) },
   plugins: [
     react(),
     tailwindcss(),

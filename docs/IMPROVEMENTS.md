@@ -1,6 +1,6 @@
 # Improvements
 
-Ideas for making the game better, roughly ordered by value within each section. (The four bugs found in the September 2026 code review have since been fixed and removed from this list.)
+Ideas for making the game better, roughly ordered by value within each section. (The four bugs found in the September 2026 code review, a fifth found after — a second stock click tearing down the draw animation mid-flight — every item from the original Code Quality section, and the CI test gate and drag-and-drop e2e from Tooling & CI have since been fixed and removed from this list.)
 
 ## Correctness
 
@@ -22,17 +22,6 @@ Ideas for making the game better, roughly ordered by value within each section. 
 - **`user-scalable=no` + `maximum-scale=1`** in `index.html` blocks pinch-zoom for low-vision players. iOS ignores it anyway; consider allowing zoom and relying on `touch-action: none` on the board only, rather than the whole page.
 - **Hashed text seeds display as opaque numbers.** Typing `canada-day` deals a stable game, but the chip and share link show the hash — remembering and re-sharing the phrase would be friendlier (store the original text alongside the numeric seed).
 
-## Code quality
-
-- **Deduplicate the suit-glyph maps.** `Card.ts` already owns `SUIT_SYMBOL` (exposed as `card.symbol`), yet `CardFace` and `FoundationSlotView` each declare their own `SUIT_GLYPH`. Export the map from `Card.ts` (or use `card.symbol`) and delete the copies.
-- **`Board.cardLayout` re-derives the column geometry** (`stride`, `colX`) that `columnStride`/`columnLeft` already compute a few lines up. Hoist one shared helper so the two can't drift.
-- **Stray tuning constants outside `animation.ts`:** the auto-finish cadence (`78` ms in `Board.handleAutoComplete` vs the named `DEAL_STEP_MS = 45`), the drawn-flip buffer (`+ 50` in the `drawn` effect), the sway multiplier (`2.2` in `useCardDrag`), and the copied-flash duration (`1400` in `SeedMenu`). The project's own convention says these belong in `lib/animation.ts` with names.
-- **Side effects during render in `useGameEngine`'s lazy init** (`saveGameSnapshot`, `history.replaceState`). Benign today (idempotent), but StrictMode runs them twice and it's the pattern oxlint is warning about — move them into a mount effect.
-- **`useCardDrag` ignores `pointerId`,** so a second finger on the same card mid-drag feeds `onPointerMove`/`onPointerEnd` from a different pointer. Track the active pointer id and ignore others.
-- **Delete the empty `_to_delete/` directory** at the repo root.
-
 ## Tooling & CI
 
-- **CI never runs the tests.** `deploy.yml` builds and ships to Pages on every push to master; `npm test`, `npm run lint`, and the Playwright suite only run locally. Add a check job (lint + typecheck + vitest at minimum) that gates the deploy job.
-- **A second e2e that exercises drag-and-drop.** The current spec covers resume + auto-finish + win; a `mouse.down/move/up` drag onto a tableau column would cover the riskiest UI path (drop registry + stage scale math).
 - **Prettier or oxfmt config committed.** The style (no semicolons, single quotes) is consistent but only by discipline; a formatter config makes it enforceable.

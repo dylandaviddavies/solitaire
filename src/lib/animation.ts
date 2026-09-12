@@ -10,8 +10,11 @@
 // The card slides across the gap while its face turns over, on one
 // decelerating curve so the turn begins at the stock and lands on the
 // waste rather than snapping across and then rotating. `Board` also needs
-// the duration to know when the reveal is over.
-export const DRAW_FLIP_MS = 620
+// the duration to know when the reveal is over. Its sampled sound fires the
+// instant the stock is clicked, not when the turn finishes — kept short
+// enough that the two still read as one event instead of the sound
+// finishing while the card is still mid-turn.
+export const DRAW_FLIP_MS = 320
 export const DRAW_FLIP = {
   duration: DRAW_FLIP_MS / 1000,
   // Ease in off the stock, ease out onto the waste, and spend the middle
@@ -26,10 +29,13 @@ export const DRAW_FLIP_CLEAR_BUFFER_MS = 50
 /** When the stock runs dry and the waste is turned back over to refill it,
  * a short stack of card-backs sweeps from the waste slot onto the stock
  * and squares up — a visual "…and shuffle". Purely decorative: the real
- * cards are already re-stacked by the time it plays. */
+ * cards are already re-stacked by the time it plays. Timed to roughly
+ * match the sampled shuffle riffle it plays alongside (~0.6s of overlapping
+ * card slides — see `playSound('shuffle')`), so the sweep doesn't visibly
+ * outlast the sound it's illustrating. */
 export const RECYCLE_GHOSTS = 4
-export const RECYCLE_SWEEP_MS = 440
-export const RECYCLE_STAGGER_MS = 55
+export const RECYCLE_SWEEP_MS = 320
+export const RECYCLE_STAGGER_MS = 45
 export const RECYCLE_SWEEP = {
   duration: RECYCLE_SWEEP_MS / 1000,
   ease: [0.36, 0, 0.2, 1],
@@ -45,8 +51,12 @@ export const RECYCLE_TOTAL_MS = RECYCLE_SWEEP_MS + RECYCLE_GHOSTS * RECYCLE_STAG
 export const DROP_SETTLE = { type: 'spring', stiffness: 390, damping: 25, mass: 0.85 } as const
 /** A tap/auto-move sends a card the full width of the board, so it wants a
  * travelling ease — soft and near-critically damped, arriving without
- * wobbling on the pile. */
-export const ARRIVE_SPRING = { type: 'spring', stiffness: 185, damping: 25, mass: 1 } as const
+ * wobbling on the pile. Its landing sound fires the instant the click is
+ * handled, before the card has moved at all, so this stays fast (same
+ * damping ratio as before, just a higher natural frequency) — the sound
+ * would otherwise finish while a slower spring was still crossing the
+ * board, and the same spring drives every Auto Finish/deal-in card too. */
+export const ARRIVE_SPRING = { type: 'spring', stiffness: 440, damping: 31, mass: 0.65 } as const
 /** Returns a card to its rest slot after an invalid drop — a bit of
  * spring is welcome here. */
 export const SNAP_BACK = { type: 'spring', stiffness: 520, damping: 34, mass: 0.55 } as const

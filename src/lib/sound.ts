@@ -68,7 +68,7 @@ const CLICKS = pool('ui-click')
 const THUDS = pool('soft-thud')
 
 /** The shuffle is a riffle built from overlapping sped-up card slides —
- * Kenney's recorded shuffle runs ~4s, way longer than the ~0.8s recycle
+ * Kenney's recorded shuffle runs ~4s, way longer than the ~0.64s recycle
  * flourish (RECYCLE_TOTAL_MS) it accompanies. Six slides, 60ms apart,
  * spans ~0.6s with their tails. */
 const SHUFFLE_RIFFLE_COUNT = 6

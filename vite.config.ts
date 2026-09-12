@@ -46,8 +46,9 @@ export default defineConfig({
       },
       workbox: {
         // Everything the game needs is a build-time asset, so precache the
-        // full app shell and let it run entirely from cache once installed.
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        // full app shell (mp3: the sampled sound effects) and let it run
+        // entirely from cache once installed.
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,mp3}'],
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
         // The Google Fonts CSS/files are cross-origin, so globPatterns

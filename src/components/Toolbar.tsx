@@ -1,6 +1,7 @@
 import { motion } from 'motion/react'
 import { useState } from 'react'
 import { formatClock, useElapsedSeconds } from '../hooks/useElapsedSeconds'
+import { playSound } from '../lib/sound'
 import { SeedMenu } from './SeedMenu'
 import { SettingsPanel } from './SettingsPanel'
 
@@ -84,7 +85,10 @@ export function Toolbar({
           <div className="relative flex">
             <button
               type="button"
-              onClick={() => setSeedMenuOpen((v) => !v)}
+              onClick={() => {
+                playSound('click')
+                setSeedMenuOpen((v) => !v)
+              }}
               title="Deal seed — copy or change"
               aria-haspopup="dialog"
               aria-expanded={seedMenuOpen}
@@ -120,7 +124,10 @@ export function Toolbar({
           )}
           <button
             type="button"
-            onClick={onUndo}
+            onClick={() => {
+              playSound('click')
+              onUndo()
+            }}
             disabled={!canUndo}
             className={`${button} bg-white/90 text-slate-800 disabled:opacity-40`}
           >
@@ -135,7 +142,10 @@ export function Toolbar({
           </button>
           <button
             type="button"
-            onClick={() => setSettingsOpen(true)}
+            onClick={() => {
+              playSound('click')
+              setSettingsOpen(true)
+            }}
             aria-label="Settings"
             className={`${button} bg-white/90 text-slate-800 ${
               dense ? 'px-2 text-sm' : 'px-2.5 text-sm sm:px-3 sm:text-base'

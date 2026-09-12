@@ -1,6 +1,6 @@
 # Solitaire
 
-A web-based Klondike Solitaire (draw-1) built with React, TypeScript, Tailwind CSS, and [Motion](https://motion.dev) for floaty, physics-based animations. Cards are chunky and colorful, and face cards use a procedurally generated low-poly motif instead of illustrated art.
+A web-based Klondike Solitaire (draw-1) built with React, TypeScript, Tailwind CSS, and [Motion](https://motion.dev) for floaty, physics-based animations. Cards are chunky and colorful, and face cards use a procedurally generated low-poly motif instead of illustrated art. Sound effects are sampled from [Kenney](https://kenney.nl)'s CC0 audio packs, with a few synthesised musical cues layered on top.
 
 It's a full PWA: installable to a home screen or desktop, and fully playable offline once you've visited it once.
 

@@ -45,7 +45,7 @@ Related invariants:
 - If `GameSnapshot` changes shape, bump its `version`, update the shape-check in `lib/gameStorage.ts`, and decide the migration story (v1 saves were deliberately dropped). `GameEngine.restore` must keep refusing anything that doesn't account for exactly 52 distinct cards.
 - Comment style: explain *why* and the constraint being honored, not what the line does. This codebase is unusually comment-dense on rationale — match it.
 - Formatting: no semicolons, single quotes, trailing commas, 2-space indent.
-- Sounds are synthesized in `lib/sound.ts` (no audio assets); backgrounds/card backs are pure data modules consumed by both settings UI and renderers.
+- Sounds live in `lib/sound.ts`: sampled mp3s from Kenney's CC0 packs in `src/assets/sounds/` (loaded via `import.meta.glob`), with synthesised blips for the musical cues and as decode-time fallbacks. New audio must be mp3 (Safari can't decode ogg) and is precached via the mp3 entry in `vite.config.ts` globPatterns. Backgrounds/card backs are pure data modules consumed by both settings UI and renderers.
 
 ## Testing patterns
 

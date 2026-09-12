@@ -63,10 +63,16 @@ const pool = (prefix: string): string[] =>
 const SLIDES = pool('card-slide')
 const PLACES = pool('card-place')
 const SHOVES = pool('card-shove')
-const SHUFFLES = pool('card-shuffle')
 const CHIPS = pool('chips-stack')
 const CLICKS = pool('ui-click')
 const THUDS = pool('soft-thud')
+
+/** The shuffle is a riffle built from overlapping sped-up card slides —
+ * Kenney's recorded shuffle runs ~4s, way longer than the ~0.8s recycle
+ * flourish (RECYCLE_TOTAL_MS) it accompanies. Six slides, 60ms apart,
+ * spans ~0.6s with their tails. */
+const SHUFFLE_RIFFLE_COUNT = 6
+const SHUFFLE_RIFFLE_STAGGER_S = 0.06
 
 const buffers = new Map<string, AudioBuffer>()
 let preloadStarted = false
@@ -205,8 +211,18 @@ export function playSound(name: SoundName, step = 0) {
         blip(a, { freq: 170, dur: 0.13, type: 'sawtooth', vol: 0.07, glide: 0.8 })
       }
       break
-    case 'shuffle':
-      if (!sample(a, { urls: SHUFFLES, vol: 0.9 })) {
+    case 'shuffle': {
+      let played = false
+      for (let i = 0; i < SHUFFLE_RIFFLE_COUNT; i++) {
+        const fired = sample(a, {
+          urls: SLIDES,
+          vol: 0.4,
+          rate: 1.8,
+          at: i * SHUFFLE_RIFFLE_STAGGER_S,
+        })
+        played = played || fired
+      }
+      if (!played) {
         for (let i = 0; i < 7; i++) {
           blip(a, {
             freq: 240 + Math.random() * 220,
@@ -219,6 +235,7 @@ export function playSound(name: SoundName, step = 0) {
         }
       }
       break
+    }
     case 'click':
       if (!sample(a, { urls: CLICKS, vol: 0.5 })) {
         blip(a, { freq: 700, dur: 0.04, type: 'triangle', vol: 0.05 })

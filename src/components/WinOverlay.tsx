@@ -1,6 +1,9 @@
+import confetti from 'canvas-confetti'
 import { AnimatePresence, motion } from 'motion/react'
+import { useEffect, useRef } from 'react'
 import { formatClock } from '../hooks/useElapsedSeconds'
 import type { Score } from '../lib/highScores'
+import { useReducedMotionValue } from '../lib/MotionPrefContext'
 
 interface WinOverlayProps {
   visible: boolean
@@ -15,8 +18,29 @@ interface WinOverlayProps {
   onRetrySeed: () => void
 }
 
-const CONFETTI_GLYPHS = ['♥', '♦', '♣', '♠']
 const fmt = (s: Score) => `${formatClock(Math.floor(s.elapsedMs / 1000))} · ${s.moves} moves`
+
+const CONFETTI_COLORS = ['#fb7185', '#fde68a', '#a78bfa', '#ffffff']
+/** How often the gentle top-of-screen sprinkle re-fires while the overlay
+ * is up, after the opening side cannons. */
+const SPRINKLE_INTERVAL_MS = 900
+
+/** Suit-glyph confetti shapes, so the celebration stays on card theme.
+ * Built once, lazily — `shapeFromText` rasterises via a 2D canvas, and a
+ * failure (an exotic browser) just falls back to the default shapes. */
+let suitShapes: confetti.Shape[] | null = null
+const getSuitShapes = (): confetti.Shape[] | undefined => {
+  if (suitShapes === null) {
+    try {
+      suitShapes = ['♥', '♦', '♣', '♠'].map((text) =>
+        confetti.shapeFromText({ text, scalar: 2 }),
+      )
+    } catch {
+      suitShapes = []
+    }
+  }
+  return suitShapes.length > 0 ? suitShapes : undefined
+}
 
 export function WinOverlay({
   visible,
@@ -30,6 +54,56 @@ export function WinOverlay({
   onNewGame,
   onRetrySeed,
 }: WinOverlayProps) {
+  const reduced = useReducedMotionValue()
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  // The celebration: two side cannons as the overlay lands, then a soft
+  // sprinkle from the top for as long as it stays up. Drawn on a canvas
+  // scoped to the overlay (not canvas-confetti's global one) so it sits
+  // behind the stats card and vanishes with the overlay. Skipped entirely
+  // under reduced motion — this canvas is outside Motion's reach, so
+  // MotionConfig can't flatten it for us.
+  useEffect(() => {
+    if (!visible || reduced) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    // No worker: a transferred OffscreenCanvas can't be handed over twice,
+    // which breaks under StrictMode's double-invoked effects.
+    const fire = confetti.create(canvas, { resize: true, useWorker: false })
+    const shapes = getSuitShapes()
+
+    const cannon = (angle: number, x: number) =>
+      void fire({
+        particleCount: 80,
+        spread: 70,
+        angle,
+        origin: { x, y: 0.9 },
+        startVelocity: 55,
+        colors: CONFETTI_COLORS,
+      })
+    cannon(60, 0)
+    cannon(120, 1)
+
+    const sprinkle = window.setInterval(() => {
+      void fire({
+        particleCount: 14,
+        spread: 120,
+        startVelocity: 18,
+        gravity: 0.7,
+        scalar: 1.4,
+        ticks: 240,
+        origin: { x: Math.random(), y: -0.1 },
+        colors: CONFETTI_COLORS,
+        shapes,
+      })
+    }, SPRINKLE_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(sprinkle)
+      fire.reset()
+    }
+  }, [visible, reduced])
+
   return (
     <AnimatePresence>
       {visible && (
@@ -39,23 +113,7 @@ export function WinOverlay({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          {Array.from({ length: 24 }, (_, i) => (
-            <motion.span
-              key={i}
-              className="pointer-events-none absolute text-3xl"
-              style={{ left: `${(i * 37) % 100}%`, color: i % 2 === 0 ? '#fb7185' : '#fde68a' }}
-              initial={{ y: -40, opacity: 0, rotate: 0 }}
-              animate={{ y: '110vh', opacity: 1, rotate: 360 }}
-              transition={{
-                duration: 2.4 + (i % 5) * 0.3,
-                repeat: Infinity,
-                delay: (i % 6) * 0.25,
-                ease: 'linear',
-              }}
-            >
-              {CONFETTI_GLYPHS[i % CONFETTI_GLYPHS.length]}
-            </motion.span>
-          ))}
+          <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full" />
 
           <motion.div
             className="relative z-10 flex w-[min(340px,90vw)] flex-col items-center gap-4 rounded-3xl bg-white px-8 py-8 text-center shadow-2xl"

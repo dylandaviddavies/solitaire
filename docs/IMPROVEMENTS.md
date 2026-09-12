@@ -20,7 +20,6 @@ Ideas for making the game better, roughly ordered by value within each section. 
 - **Keyboard play.** Cards are `div`s with pointer handlers only — no tab stops, no Enter/Space activation. Klondike maps well to keyboard (arrows between piles, Enter to auto-move). This is the largest accessibility gap.
 - **ARIA/screen-reader pass.** Cards and piles expose no roles, names, or live announcements ("7 of hearts moved to foundation"). The toolbar buttons are fine; the board is invisible to AT.
 - **`user-scalable=no` + `maximum-scale=1`** in `index.html` blocks pinch-zoom for low-vision players. iOS ignores it anyway; consider allowing zoom and relying on `touch-action: none` on the board only, rather than the whole page.
-- **Reduced-motion coverage is good but the win confetti still animates** (`WinOverlay` doesn't consult the preference; only `MotionConfig` flattening applies). Verify it actually flattens under `reduced`, and skip the infinite confetti loop explicitly.
 - **Hashed text seeds display as opaque numbers.** Typing `canada-day` deals a stable game, but the chip and share link show the hash — remembering and re-sharing the phrase would be friendlier (store the original text alongside the numeric seed).
 
 ## Code quality

@@ -76,3 +76,30 @@ export function autoCompletableSnapshot(): GameSnapshot {
   })
   return snapshot
 }
+
+/**
+ * A single legal drag sitting in plain sight: tableau column 0 holds one
+ * face-up red Six, column 1 holds one face-up black Seven the Six can
+ * legally land on. Every other card is parked face-up in column 6 — out
+ * of the way, but still accounted for so `restore()`'s full-deck check
+ * passes. Used by the e2e test to exercise real pointer-drag mechanics
+ * (not just click-to-move).
+ */
+export function dragDropSnapshot(): GameSnapshot {
+  const snapshot = emptySnapshot()
+  const six = card('6', Suit.Diamonds, true)
+  const seven = card('7', Suit.Spades, true)
+  snapshot.tableau[0] = [six]
+  snapshot.tableau[1] = [seven]
+
+  const used = new Set([`${six.rank}-${six.suit}`, `${seven.rank}-${seven.suit}`])
+  const rest: SerializedCard[] = []
+  for (const suit of ALL_SUITS) {
+    for (const rank of RANKS) {
+      if (!used.has(`${rank}-${suit}`)) rest.push(card(rank, suit, true))
+    }
+  }
+  snapshot.tableau[6] = rest
+
+  return snapshot
+}

@@ -4,7 +4,6 @@ Ideas for making the game better, roughly ordered by value within each section. 
 
 ## Correctness
 
-- **(bug) `restore()` trusts `dealQueue` too much.** `gameStorage` checks that `column` is a number but not its range; a hand-edited save with `column: 99` makes `dealNext()` throw on `this.tableau[99].push`. While there: `isGameSnapshot` doesn't pin `foundations.length === 4` / `tableau.length === 7`, so a 8-column save can pass the 52-card count yet silently drop a column's cards on restore.
 - **Game time is wall-clock, not play time.** `startedAt` persists across saves, so a game resumed the next day "took" 20 hours — and that time feeds the per-seed and overall high scores, which makes them incomparable. Track accumulated active play time in the snapshot (pause on `visibilitychange`/unload) instead of a start timestamp.
 - **Reloading a finished game shows a bare won board.** The win overlay is transient React state; after a refresh the player gets a fully-stacked board with nothing to do but find New Game. Either clear the save on win or re-show a "You won this one" state on restore.
 

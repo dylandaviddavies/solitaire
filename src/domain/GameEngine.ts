@@ -366,11 +366,21 @@ export class GameEngine {
   /**
    * Replaces the current board with a previously-captured one — used to
    * resume a game after a page refresh. Refuses (leaving the engine's own
-   * freshly-dealt game untouched) unless the snapshot accounts for exactly
-   * the 52 distinct cards a real deck has, so a corrupted or hand-edited
-   * save can never leave the board in a broken state.
+   * freshly-dealt game untouched) unless the snapshot has the right pile
+   * counts, an in-range deal queue, and accounts for exactly the 52
+   * distinct cards a real deck has — so a corrupted or hand-edited save
+   * can never leave the board in a broken state.
    */
   restore(snapshot: GameSnapshot): boolean {
+    // Pile-count check first: extra pile arrays could otherwise pass the
+    // 52-card tally below while their cards are silently dropped, and a
+    // deal step naming a column that doesn't exist would crash dealNext().
+    if (snapshot.foundations.length !== this.foundations.length) return false
+    if (snapshot.tableau.length !== this.tableau.length) return false
+    const columnInRange = (step: DealStep) =>
+      Number.isInteger(step.column) && step.column >= 0 && step.column < TABLEAU_COLUMNS
+    if (!snapshot.dealQueue.every(columnInRange)) return false
+
     const allSerialized = [
       ...snapshot.stock,
       ...snapshot.waste,
@@ -384,8 +394,8 @@ export class GameEngine {
     const makeCard = (sc: SerializedCard) => new Card(sc.suit, sc.rank, sc.faceUp)
     this.stock.reset(snapshot.stock.map(makeCard))
     this.waste.reset(snapshot.waste.map(makeCard))
-    this.foundations.forEach((foundation, i) => foundation.reset((snapshot.foundations[i] ?? []).map(makeCard)))
-    this.tableau.forEach((column, i) => column.reset((snapshot.tableau[i] ?? []).map(makeCard)))
+    this.foundations.forEach((foundation, i) => foundation.reset(snapshot.foundations[i].map(makeCard)))
+    this.tableau.forEach((column, i) => column.reset(snapshot.tableau[i].map(makeCard)))
 
     this.dealQueue = snapshot.dealQueue.map((step) => ({ ...step }))
     this.history = []

@@ -249,6 +249,22 @@ describe('GameEngine — full-game integration', () => {
     expect(engine.foundations.some((f) => f.top?.rank === 'A' && f.top.suit === Suit.Spades)).toBe(true)
   })
 
+  it('refuses a snapshot with a deal step outside the tableau', () => {
+    const snapshot = winnableDealSnapshot()
+    snapshot.dealQueue = [{ column: 99, faceUp: true }]
+    expect(new GameEngine().restore(snapshot)).toBe(false)
+  })
+
+  it('refuses a snapshot whose pile counts do not match the board', () => {
+    const extraColumn = winnableDealSnapshot()
+    extraColumn.tableau.push([])
+    expect(new GameEngine().restore(extraColumn)).toBe(false)
+
+    const missingFoundation = winnableDealSnapshot()
+    missingFoundation.foundations = missingFoundation.foundations.slice(0, 3)
+    expect(new GameEngine().restore(missingFoundation)).toBe(false)
+  })
+
   it('never lets a greedy playthrough throw, whatever the shuffle', () => {
     // A handful of deterministic shuffles: the solver must always either
     // win or run out of safe moves cleanly — never crash, never loop.

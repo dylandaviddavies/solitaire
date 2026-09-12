@@ -131,14 +131,12 @@ export function Board() {
   // each card should glide, from where, and whether it actually changed
   // piles (vs. just shifted because its column's fan re-flowed).
   const cardLayout = useCallback((): Map<string, { x: number; y: number; pile: string }> => {
-    const stride = CARD_WIDTH + columnGap
-    const colX = (i: number) => i * stride
     const layout = new Map<string, { x: number; y: number; pile: string }>()
     for (const c of engine.stock.getCards()) layout.set(c.id, { x: 0, y: 0, pile: 'stock' })
-    for (const c of engine.waste.getCards()) layout.set(c.id, { x: stride, y: 0, pile: 'waste' })
+    for (const c of engine.waste.getCards()) layout.set(c.id, { x: columnStride, y: 0, pile: 'waste' })
     engine.foundations.forEach((f, i) => {
       for (const c of f.getCards()) {
-        layout.set(c.id, { x: colX(FOUNDATION_START_COLUMN + i), y: 0, pile: f.id })
+        layout.set(c.id, { x: columnLeft(FOUNDATION_START_COLUMN + i), y: 0, pile: f.id })
       }
     })
     engine.tableau.forEach((column, ci) => {
@@ -148,11 +146,15 @@ export function Board() {
         tableauFanHeight,
       )
       cards.forEach((c, idx) => {
-        layout.set(c.id, { x: colX(ci), y: tableauTop + offsets[idx], pile: column.id })
+        layout.set(c.id, { x: columnLeft(ci), y: tableauTop + offsets[idx], pile: column.id })
       })
     })
     return layout
-  }, [engine, columnGap, tableauTop, tableauFanHeight])
+    // `columnLeft` isn't listed: it's a plain function of `columnStride`
+    // alone, so depending on `columnStride` already recreates this closure
+    // exactly when `columnLeft`'s output would change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engine, columnStride, tableauTop, tableauFanHeight])
 
   const foundationTotal = useCallback(
     () => engine.foundations.reduce((n, f) => n + f.length, 0),
